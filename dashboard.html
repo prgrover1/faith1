@@ -1,0 +1,726 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Faith — Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"/>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: oklch(97% 0.007 80);
+    --surface: #fff;
+    --fg: oklch(18% 0.012 260);
+    --fg-muted: oklch(48% 0.01 260);
+    --fg-faint: oklch(70% 0.008 260);
+    --accent: oklch(52% 0.13 160);
+    --accent-light: oklch(94% 0.04 160);
+    --amber: oklch(65% 0.14 65);
+    --amber-light: oklch(96% 0.04 80);
+    --red: oklch(52% 0.18 25);
+    --red-light: oklch(96% 0.05 25);
+    --border: oklch(89% 0.006 80);
+    --sidebar-w: 220px;
+    --shadow: 0 1px 3px oklch(0% 0 0 / 0.05), 0 4px 16px oklch(0% 0 0 / 0.04);
+  }
+  body { font-family: 'Plus Jakarta Sans', sans-serif; background: var(--bg); color: var(--fg); height: 100vh; overflow: hidden; }
+  #root { display: flex; height: 100vh; overflow: hidden; }
+
+  /* SIDEBAR */
+  .sidebar { width: var(--sidebar-w); background: var(--surface); border-right: 1px solid var(--border); display: flex; flex-direction: column; flex-shrink: 0; height: 100vh; }
+  .sidebar-logo { padding: 20px 20px 16px; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid var(--border); transition: opacity 0.15s; }
+  .sidebar-logo:hover { opacity: 0.75; }
+  .logo-mark { font-size: 1.4rem; color: var(--accent); line-height: 1; }
+  .sidebar-logo span { font-weight: 800; font-size: 1.1rem; letter-spacing: -0.03em; color: #111; }
+  .sidebar-nav { padding: 12px 10px; flex: 1; display: flex; flex-direction: column; gap: 2px; }
+  .nav-item { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 8px; font-size: 0.85rem; font-weight: 500; color: var(--fg-muted); cursor: pointer; transition: background 0.15s, color 0.15s; text-decoration: none; }
+  .nav-item:hover { background: var(--bg); color: var(--fg); }
+  .nav-item.active { background: var(--accent-light); color: var(--accent); font-weight: 600; }
+  .nav-section { font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--fg-faint); padding: 12px 12px 4px; }
+  .sidebar-footer { padding: 16px; border-top: 1px solid var(--border); }
+  .sidebar-user { display: flex; align-items: center; gap: 10px; }
+  .user-avatar { width: 32px; height: 32px; background: var(--accent-light); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.75rem; color: var(--accent); }
+  .user-info { flex: 1; min-width: 0; }
+  .user-name { font-size: 0.8rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .user-role { font-size: 0.7rem; color: var(--fg-muted); }
+
+  /* MAIN */
+  .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+  .topbar { background: var(--surface); border-bottom: 1px solid var(--border); padding: 0 28px; height: 56px; display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; }
+  .topbar-title { font-weight: 700; font-size: 1rem; letter-spacing: -0.02em; }
+  .topbar-right { display: flex; align-items: center; gap: 12px; }
+  .topbar-badge { background: var(--amber-light); color: var(--amber); padding: 4px 10px; border-radius: 100px; font-size: 0.72rem; font-weight: 700; cursor: pointer; }
+  .sync-btn { display: flex; align-items: center; gap: 6px; background: var(--bg); border: 1px solid var(--border); padding: 6px 14px; border-radius: 8px; font-size: 0.8rem; font-weight: 600; color: var(--fg-muted); cursor: pointer; transition: color 0.15s; }
+  .sync-btn:hover { color: var(--fg); }
+  .content { flex: 1; overflow-y: auto; padding: 28px; display: flex; flex-direction: column; gap: 24px; }
+
+  /* STAT CARDS */
+  .stat-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+  .stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px; box-shadow: var(--shadow); }
+  .stat-card.alert-card { background: var(--amber-light); border-color: oklch(85% 0.07 70); }
+  .stat-card.critical-card { background: var(--red-light); border-color: oklch(88% 0.07 25); }
+  .stat-label { font-size: 0.72rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--fg-muted); margin-bottom: 10px; }
+  .stat-card.alert-card .stat-label { color: oklch(52% 0.1 60); }
+  .stat-card.critical-card .stat-label { color: oklch(45% 0.15 25); }
+  .stat-val { font-size: 2rem; font-weight: 800; letter-spacing: -0.04em; color: var(--fg); line-height: 1; }
+  .stat-card.alert-card .stat-val { color: oklch(42% 0.12 50); }
+  .stat-card.critical-card .stat-val { color: var(--red); }
+  .stat-sub { font-size: 0.75rem; color: var(--fg-muted); margin-top: 6px; }
+
+  /* TWO-COL LAYOUT */
+  .two-col { display: grid; grid-template-columns: 1fr 360px; gap: 20px; }
+
+  /* TABLE CARD */
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow); overflow: hidden; }
+  .card-header { padding: 16px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+  .card-title { font-size: 0.9rem; font-weight: 700; letter-spacing: -0.01em; }
+  .card-sub { font-size: 0.75rem; color: var(--fg-muted); margin-top: 2px; }
+  .filter-tabs { display: flex; gap: 4px; }
+  .filter-tab { padding: 4px 12px; border-radius: 6px; font-size: 0.75rem; font-weight: 600; cursor: pointer; border: 1px solid transparent; transition: all 0.15s; color: var(--fg-muted); }
+  .filter-tab.active { background: var(--fg); color: #fff; }
+  .filter-tab:not(.active):hover { background: var(--bg); border-color: var(--border); color: var(--fg); }
+
+  .inv-table { width: 100%; border-collapse: collapse; }
+  .inv-table thead tr { background: oklch(97% 0.005 80); }
+  .inv-table th { padding: 10px 20px; text-align: left; font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--fg-muted); border-bottom: 1px solid var(--border); }
+  .inv-table td { padding: 13px 20px; border-bottom: 1px solid var(--border); font-size: 0.82rem; color: var(--fg); }
+  .inv-table tbody tr:last-child td { border-bottom: none; }
+  .inv-table tbody tr:hover td { background: oklch(98.5% 0.005 80); }
+  .prod-name { font-weight: 600; }
+  .prod-sku { font-size: 0.7rem; color: var(--fg-muted); font-weight: 400; }
+  .stock-bar-wrap { display: flex; align-items: center; gap: 10px; }
+  .stock-bar { flex: 1; height: 5px; background: var(--border); border-radius: 100px; overflow: hidden; max-width: 80px; }
+  .stock-fill { height: 100%; border-radius: 100px; transition: width 0.3s; }
+  .stock-num { font-weight: 700; font-size: 0.82rem; min-width: 28px; }
+  .badge { display: inline-flex; align-items: center; padding: 3px 9px; border-radius: 100px; font-size: 0.68rem; font-weight: 700; }
+  .badge.critical { background: var(--red-light); color: var(--red); }
+  .badge.low { background: var(--amber-light); color: var(--amber); }
+  .badge.good { background: var(--accent-light); color: var(--accent); }
+  .badge.ok { background: oklch(94% 0.005 260); color: var(--fg-muted); }
+  .action-btn { background: transparent; border: 1px solid var(--border); padding: 4px 10px; border-radius: 6px; font-size: 0.72rem; font-weight: 600; color: var(--fg-muted); cursor: pointer; transition: all 0.15s; }
+  .action-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* FAITH PANEL */
+  .faith-panel { display: flex; flex-direction: column; gap: 16px; }
+  .faith-header { padding: 16px 20px; border-bottom: 1px solid var(--border); }
+  .faith-title-row { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+  .faith-dot { width: 8px; height: 8px; background: var(--accent); border-radius: 50%; animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+  .faith-panel-title { font-size: 0.9rem; font-weight: 700; }
+  .faith-panel-sub { font-size: 0.75rem; color: var(--fg-muted); }
+  .faith-scroll { padding: 16px; display: flex; flex-direction: column; gap: 12px; overflow-y: auto; flex: 1; }
+  .draft-card { background: var(--bg); border: 1px solid var(--border); border-radius: 10px; padding: 14px; transition: border-color 0.2s; }
+  .draft-card:hover { border-color: oklch(78% 0.01 260); }
+  .draft-card.approved { border-color: var(--accent); background: var(--accent-light); opacity: 0.7; }
+  .draft-card.dismissed { opacity: 0.4; }
+  .draft-vendor { font-size: 0.72rem; color: var(--fg-muted); margin-bottom: 2px; }
+  .draft-vendor strong { color: var(--fg); font-weight: 600; }
+  .faith-tag-inline { display: inline-flex; align-items: center; gap: 4px; font-size: 0.65rem; color: var(--accent); font-weight: 700; background: var(--accent-light); padding: 2px 7px; border-radius: 100px; margin-bottom: 6px; }
+  .draft-body { font-size: 0.78rem; color: var(--fg); line-height: 1.55; margin-bottom: 10px; }
+  .draft-actions { display: flex; gap: 7px; }
+  .btn-approve { background: var(--accent); color: #fff; border: none; padding: 6px 14px; border-radius: 7px; font-size: 0.75rem; font-weight: 700; cursor: pointer; transition: opacity 0.15s; font-family: inherit; }
+  .btn-approve:hover { opacity: 0.85; }
+  .btn-edit { background: transparent; border: 1px solid var(--border); color: var(--fg-muted); padding: 6px 10px; border-radius: 7px; font-size: 0.75rem; font-weight: 600; cursor: pointer; transition: color 0.15s, border-color 0.15s; font-family: inherit; }
+  .btn-edit:hover { color: var(--fg); border-color: oklch(75% 0.01 260); }
+  .btn-dismiss { background: transparent; border: none; color: var(--fg-faint); padding: 6px 8px; font-size: 0.75rem; cursor: pointer; font-family: inherit; }
+  .approved-label { font-size: 0.75rem; font-weight: 700; color: var(--accent); }
+  .empty-state { text-align: center; padding: 32px 16px; color: var(--fg-muted); font-size: 0.82rem; }
+
+  /* TWEAKS PANEL */
+  .tweaks-panel { position: fixed; bottom: 24px; right: 24px; background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 20px; box-shadow: 0 8px 32px oklch(0% 0 0 / 0.12); z-index: 1000; width: 260px; display: none; }
+  .tweaks-panel.visible { display: block; }
+  .tweaks-title { font-size: 0.85rem; font-weight: 700; margin-bottom: 16px; display: flex; align-items: center; justify-content: space-between; }
+  .tweaks-close { background: none; border: none; cursor: pointer; color: var(--fg-muted); font-size: 1rem; }
+  .tweak-row { margin-bottom: 14px; }
+  .tweak-label { font-size: 0.72rem; font-weight: 600; color: var(--fg-muted); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.05em; }
+  .tweak-options { display: flex; gap: 6px; flex-wrap: wrap; }
+  .tweak-opt { padding: 4px 12px; border-radius: 6px; font-size: 0.75rem; font-weight: 600; cursor: pointer; border: 1.5px solid var(--border); color: var(--fg-muted); transition: all 0.15s; background: transparent; font-family: inherit; }
+  .tweak-opt.selected { border-color: var(--accent); color: var(--accent); background: var(--accent-light); }
+  .tweak-toggle { display: flex; align-items: center; justify-content: space-between; }
+  .toggle-switch { width: 36px; height: 20px; background: var(--border); border-radius: 100px; position: relative; cursor: pointer; transition: background 0.2s; }
+  .toggle-switch.on { background: var(--accent); }
+  .toggle-knob { position: absolute; width: 14px; height: 14px; background: #fff; border-radius: 50%; top: 3px; left: 3px; transition: left 0.2s; }
+  .toggle-switch.on .toggle-knob { left: 19px; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel">
+const { useState, useEffect } = React;
+
+const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+  "theme": "light",
+  "density": "comfortable",
+  "autoApprove": false,
+  "sidebar": "icons+labels",
+  "accent": "oklch(52% 0.13 160)"
+}/*EDITMODE-END*/;
+
+const initialInventory = [
+  { id:1, name:"Organic Oats 1kg",   sku:"OAT-001", category:"Grains",    stock:12,  safety:50, vendor:"GrainCo Supplies",    vendorEmail:"orders@grainco.com",   unitCost:2.40, reorderQty:200 },
+  { id:2, name:"Green Tea Bags 50pk",sku:"TEA-012", category:"Beverages", stock:38,  safety:40, vendor:"TeaLeaf Trading",     vendorEmail:"buy@tealeaf.io",        unitCost:3.80, reorderQty:100 },
+  { id:3, name:"Brown Rice 2kg",     sku:"RIC-007", category:"Grains",    stock:8,   safety:25, vendor:"GrainCo Supplies",    vendorEmail:"orders@grainco.com",   unitCost:3.20, reorderQty:150 },
+  { id:4, name:"Almond Butter 350g", sku:"BUT-003", category:"Spreads",   stock:94,  safety:30, vendor:"NutriSource Ltd",     vendorEmail:"orders@nutrisource.com",unitCost:6.50, reorderQty:60  },
+  { id:5, name:"Olive Oil 500ml",    sku:"OIL-021", category:"Oils",      stock:31,  safety:35, vendor:"Mediterranean Foods", vendorEmail:"supply@medfood.co",    unitCost:5.20, reorderQty:80  },
+  { id:6, name:"Chia Seeds 400g",    sku:"CHI-009", category:"Seeds",     stock:22,  safety:20, vendor:"NutriSource Ltd",     vendorEmail:"orders@nutrisource.com",unitCost:4.10, reorderQty:100 },
+  { id:7, name:"Coconut Milk 400ml", sku:"COC-005", category:"Beverages", stock:5,   safety:30, vendor:"TeaLeaf Trading",    vendorEmail:"buy@tealeaf.io",        unitCost:1.90, reorderQty:120 },
+  { id:8, name:"Honey Raw 500g",     sku:"HON-014", category:"Sweeteners",stock:68,  safety:25, vendor:"HoneyFarm Direct",   vendorEmail:"sales@honeyfarm.com",  unitCost:7.80, reorderQty:40  },
+];
+
+function getStatus(stock, safety) {
+  const ratio = stock / safety;
+  if (ratio <= 0.3) return 'critical';
+  if (ratio <= 1) return 'low';
+  if (ratio <= 1.5) return 'ok';
+  return 'good';
+}
+
+function getStockColor(status) {
+  if (status === 'critical') return 'oklch(52% 0.18 25)';
+  if (status === 'low') return 'oklch(65% 0.14 65)';
+  if (status === 'ok') return 'oklch(70% 0.01 260)';
+  return 'oklch(52% 0.13 160)';
+}
+
+function draftsFromInventory(inv) {
+  return inv
+    .filter(i => getStatus(i.stock, i.safety) === 'critical' || getStatus(i.stock, i.safety) === 'low')
+    .map(i => ({
+      id: i.id,
+      vendor: i.vendor,
+      email: i.vendorEmail,
+      product: i.name,
+      qty: i.reorderQty,
+      status: 'pending',
+      body: `Hi, we'd like to reorder ${i.reorderQty} units of ${i.name} (SKU: ${i.sku}). Our current stock has dropped to ${i.stock} units, which is below our safety threshold of ${i.safety}. Please confirm availability and estimated delivery. Thank you.`,
+    }));
+}
+
+function StatusBadge({ status }) {
+  const labels = { critical:'Critical', low:'Low', ok:'Adequate', good:'Good' };
+  return <span className={`badge ${status}`}>{labels[status]}</span>;
+}
+
+function StockBar({ stock, safety, status }) {
+  const pct = Math.min(100, (stock / (safety * 2)) * 100);
+  return (
+    <div className="stock-bar-wrap">
+      <div className="stock-bar">
+        <div className="stock-fill" style={{ width: pct+'%', background: getStockColor(status) }}/>
+      </div>
+      <span className="stock-num" style={{ color: getStockColor(status) }}>{stock}</span>
+    </div>
+  );
+}
+
+function InventoryTable({ inventory, filter }) {
+  const filtered = filter === 'all' ? inventory :
+    filter === 'alerts' ? inventory.filter(i => ['critical','low'].includes(getStatus(i.stock,i.safety))) :
+    inventory.filter(i => getStatus(i.stock,i.safety) === filter);
+
+  return (
+    <table className="inv-table">
+      <thead>
+        <tr>
+          <th>Product</th>
+          <th>Category</th>
+          <th>Stock</th>
+          <th>Safety Stock</th>
+          <th>Status</th>
+          <th>Vendor</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {filtered.map(item => {
+          const status = getStatus(item.stock, item.safety);
+          return (
+            <tr key={item.id}>
+              <td>
+                <div className="prod-name">{item.name}</div>
+                <div className="prod-sku">{item.sku}</div>
+              </td>
+              <td style={{color:'var(--fg-muted)',fontSize:'0.8rem'}}>{item.category}</td>
+              <td><StockBar stock={item.stock} safety={item.safety} status={status}/></td>
+              <td style={{color:'var(--fg-muted)',fontSize:'0.82rem'}}>{item.safety} units</td>
+              <td><StatusBadge status={status}/></td>
+              <td style={{fontSize:'0.8rem',color:'var(--fg-muted)'}}>{item.vendor}</td>
+              <td><button className="action-btn">View</button></td>
+            </tr>
+          );
+        })}
+      </tbody>
+    </table>
+  );
+}
+
+function DraftCard({ draft, onApprove, onDismiss }) {
+  const [editing, setEditing] = useState(false);
+  const [body, setBody] = useState(draft.body);
+
+  if (draft.status === 'approved') return (
+    <div className="draft-card approved">
+      <div className="draft-vendor"><strong>{draft.vendor}</strong></div>
+      <div className="approved-label">✓ Sent to {draft.email}</div>
+    </div>
+  );
+  if (draft.status === 'dismissed') return null;
+
+  return (
+    <div className="draft-card">
+      <div className="faith-tag-inline">✦ Faith drafted this</div>
+      <div className="draft-vendor">To: <strong>{draft.vendor}</strong> · {draft.email}</div>
+      <div className="draft-vendor" style={{marginBottom:'8px'}}>Re: {draft.product} — {draft.qty} units</div>
+      {editing ? (
+        <textarea
+          style={{width:'100%',height:'90px',fontSize:'0.78rem',border:'1px solid var(--border)',borderRadius:'6px',padding:'8px',fontFamily:'inherit',resize:'none',color:'var(--fg)',background:'var(--surface)'}}
+          value={body}
+          onChange={e => setBody(e.target.value)}
+        />
+      ) : (
+        <div className="draft-body">{body}</div>
+      )}
+      <div className="draft-actions">
+        <button className="btn-approve" onClick={() => onApprove(draft.id)}>
+          {editing ? 'Send Edited' : 'Approve & Send'}
+        </button>
+        <button className="btn-edit" onClick={() => setEditing(!editing)}>
+          {editing ? 'Cancel' : 'Edit'}
+        </button>
+        <button className="btn-dismiss" onClick={() => onDismiss(draft.id)}>✕</button>
+      </div>
+    </div>
+  );
+}
+
+function FaithPanel({ drafts, onApprove, onDismiss }) {
+  const pending = drafts.filter(d => d.status === 'pending').length;
+  return (
+    <div className="card faith-panel" style={{display:'flex',flexDirection:'column',maxHeight:'600px'}}>
+      <div className="faith-header">
+        <div className="faith-title-row">
+          <div className="faith-dot"/>
+          <span className="faith-panel-title">Faith AI</span>
+        </div>
+        <div className="faith-panel-sub">
+          {pending > 0 ? `${pending} draft${pending>1?'s':''} awaiting your approval` : 'All drafts processed'}
+        </div>
+      </div>
+      <div className="faith-scroll">
+        {drafts.length === 0 ? (
+          <div className="empty-state">No low-stock items detected.<br/>Faith is watching your inventory.</div>
+        ) : drafts.map(d => (
+          <DraftCard key={d.id} draft={d} onApprove={onApprove} onDismiss={onDismiss}/>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function App() {
+  const [tweaks, setTweaks] = useState(() => {
+    try { return {...TWEAK_DEFAULTS, ...JSON.parse(localStorage.getItem('faith_tweaks')||'{}')}; }
+    catch(e) { return TWEAK_DEFAULTS; }
+  });
+  const [showTweaks, setShowTweaks] = useState(false);
+  const [filter, setFilter] = useState('all');
+  const [activeNav, setActiveNav] = useState('dashboard');
+  const [modal, setModal] = useState(null); // null | 'skus' | 'alerts' | 'critical' | 'drafts'
+  const [inventory] = useState(initialInventory);
+  const [drafts, setDrafts] = useState(() => draftsFromInventory(initialInventory));
+  const [syncing, setSyncing] = useState(false);
+
+  useEffect(() => {
+    localStorage.setItem('faith_tweaks', JSON.stringify(tweaks));
+  }, [tweaks]);
+
+  useEffect(() => {
+    window.addEventListener('message', (e) => {
+      if (e.data?.type === '__activate_edit_mode') setShowTweaks(true);
+      if (e.data?.type === '__deactivate_edit_mode') setShowTweaks(false);
+    });
+    window.parent.postMessage({type:'__edit_mode_available'}, '*');
+  }, []);
+
+  function updateTweak(key, val) {
+    const next = {...tweaks, [key]: val};
+    setTweaks(next);
+    window.parent.postMessage({type:'__edit_mode_set_keys', edits: next}, '*');
+  }
+
+  function handleApprove(id) {
+    setDrafts(d => d.map(x => x.id===id ? {...x, status:'approved'} : x));
+  }
+  function handleDismiss(id) {
+    setDrafts(d => d.map(x => x.id===id ? {...x, status:'dismissed'} : x));
+  }
+
+  function handleSync() {
+    setSyncing(true);
+    setTimeout(() => setSyncing(false), 1800);
+  }
+
+  const alerts = inventory.filter(i => ['critical','low'].includes(getStatus(i.stock,i.safety)));
+  const critical = inventory.filter(i => getStatus(i.stock,i.safety) === 'critical');
+  const pendingDrafts = drafts.filter(d => d.status === 'pending').length;
+
+  const pageTitles = { dashboard:'Inventory Dashboard', inventory:'All Inventory', orders:'Orders', vendors:'Vendors' };
+
+  const vendors = [
+    { id:1, name:'GrainCo Supplies',     contact:'Sarah Mills',   email:'orders@grainco.com',    phone:'+1 555 0101', items:2, lastOrder:'Apr 12, 2026', status:'active' },
+    { id:2, name:'TeaLeaf Trading',      contact:'Ben Okafor',    email:'buy@tealeaf.io',         phone:'+1 555 0182', items:2, lastOrder:'Mar 28, 2026', status:'active' },
+    { id:3, name:'NutriSource Ltd',      contact:'Priya Shah',    email:'orders@nutrisource.com', phone:'+1 555 0234', items:2, lastOrder:'Apr 1, 2026',  status:'active' },
+    { id:4, name:'Mediterranean Foods',  contact:'Luca Rossi',    email:'supply@medfood.co',      phone:'+1 555 0311', items:1, lastOrder:'Mar 15, 2026', status:'inactive' },
+    { id:5, name:'HoneyFarm Direct',     contact:'Emma Clarke',   email:'sales@honeyfarm.com',    phone:'+1 555 0445', items:1, lastOrder:'Feb 20, 2026', status:'active' },
+  ];
+
+  const orders = [
+    { id:'ORD-001', vendor:'GrainCo Supplies',    product:'Organic Oats 1kg',    qty:200, total:'$480',  date:'Apr 19, 2026', status:'pending'   },
+    { id:'ORD-002', vendor:'TeaLeaf Trading',     product:'Coconut Milk 400ml',  qty:120, total:'$228',  date:'Apr 19, 2026', status:'pending'   },
+    { id:'ORD-003', vendor:'GrainCo Supplies',    product:'Brown Rice 2kg',      qty:150, total:'$480',  date:'Apr 18, 2026', status:'sent'      },
+    { id:'ORD-004', vendor:'NutriSource Ltd',     product:'Chia Seeds 400g',     qty:100, total:'$410',  date:'Apr 10, 2026', status:'delivered' },
+    { id:'ORD-005', vendor:'Mediterranean Foods', product:'Olive Oil 500ml',     qty:80,  total:'$416',  date:'Apr 3, 2026',  status:'delivered' },
+    { id:'ORD-006', vendor:'HoneyFarm Direct',    product:'Honey Raw 500g',      qty:40,  total:'$312',  date:'Mar 28, 2026', status:'delivered' },
+  ];
+
+  function InventoryPage() {
+    return (
+      <div className="content">
+        <div className="two-col">
+          <div className="card">
+            <div className="card-header">
+              <div><div className="card-title">All Products</div><div className="card-sub">Last synced from Google Sheets · just now</div></div>
+              <div className="filter-tabs">
+                {[['all','All'],['alerts','Alerts'],['critical','Critical'],['good','Good']].map(([k,l]) => (
+                  <button key={k} className={`filter-tab ${filter===k?'active':''}`} onClick={()=>setFilter(k)}>{l}</button>
+                ))}
+              </div>
+            </div>
+            <InventoryTable inventory={inventory} filter={filter}/>
+          </div>
+          <FaithPanel drafts={drafts} onApprove={handleApprove} onDismiss={handleDismiss}/>
+        </div>
+      </div>
+    );
+  }
+
+  function OrdersPage() {
+    const statusColors = { pending:{bg:'var(--amber-light)',color:'var(--amber)'}, sent:{bg:'var(--accent-light)',color:'var(--accent)'}, delivered:{bg:'oklch(94% 0.005 260)',color:'var(--fg-muted)'} };
+    return (
+      <div className="content">
+        <div className="stat-row" style={{gridTemplateColumns:'repeat(3,1fr)'}}>
+          <div className="stat-card"><div className="stat-label">Total Orders</div><div className="stat-val">{orders.length}</div><div className="stat-sub">All time</div></div>
+          <div className="stat-card alert-card"><div className="stat-label">Pending</div><div className="stat-val">{orders.filter(o=>o.status==='pending').length}</div><div className="stat-sub">Awaiting send</div></div>
+          <div className="stat-card"><div className="stat-label">Delivered</div><div className="stat-val">{orders.filter(o=>o.status==='delivered').length}</div><div className="stat-sub">Completed</div></div>
+        </div>
+        <div className="card">
+          <div className="card-header"><div className="card-title">Order History</div></div>
+          <table className="inv-table">
+            <thead><tr><th>Order ID</th><th>Vendor</th><th>Product</th><th>Qty</th><th>Total</th><th>Date</th><th>Status</th></tr></thead>
+            <tbody>
+              {orders.map(o => (
+                <tr key={o.id}>
+                  <td><span style={{fontWeight:600,fontFamily:'monospace',fontSize:'0.78rem'}}>{o.id}</span></td>
+                  <td style={{fontSize:'0.82rem'}}>{o.vendor}</td>
+                  <td style={{fontSize:'0.82rem',fontWeight:600}}>{o.product}</td>
+                  <td style={{fontSize:'0.82rem'}}>{o.qty} units</td>
+                  <td style={{fontSize:'0.82rem',fontWeight:700}}>{o.total}</td>
+                  <td style={{fontSize:'0.8rem',color:'var(--fg-muted)'}}>{o.date}</td>
+                  <td><span className="badge" style={{background:statusColors[o.status]?.bg,color:statusColors[o.status]?.color}}>{o.status.charAt(0).toUpperCase()+o.status.slice(1)}</span></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    );
+  }
+
+  function VendorsPage() {
+    return (
+      <div className="content">
+        <div className="stat-row" style={{gridTemplateColumns:'repeat(3,1fr)'}}>
+          <div className="stat-card"><div className="stat-label">Total Vendors</div><div className="stat-val">{vendors.length}</div><div className="stat-sub">In your network</div></div>
+          <div className="stat-card"><div className="stat-label">Active</div><div className="stat-val">{vendors.filter(v=>v.status==='active').length}</div><div className="stat-sub">Regularly ordering</div></div>
+          <div className="stat-card"><div className="stat-label">Faith Managed</div><div className="stat-val">{vendors.length}</div><div className="stat-sub">AI drafts enabled</div></div>
+        </div>
+        <div className="card">
+          <div className="card-header"><div className="card-title">Vendor Directory</div><div className="card-sub">Faith drafts reorder emails to all active vendors</div></div>
+          <table className="inv-table">
+            <thead><tr><th>Vendor</th><th>Contact</th><th>Email</th><th>SKUs</th><th>Last Order</th><th>Status</th><th></th></tr></thead>
+            <tbody>
+              {vendors.map(v => (
+                <tr key={v.id}>
+                  <td><span style={{fontWeight:700}}>{v.name}</span></td>
+                  <td style={{fontSize:'0.82rem',color:'var(--fg-muted)'}}>{v.contact}</td>
+                  <td style={{fontSize:'0.78rem',color:'var(--accent)'}}>{v.email}</td>
+                  <td style={{fontSize:'0.82rem'}}>{v.items} products</td>
+                  <td style={{fontSize:'0.8rem',color:'var(--fg-muted)'}}>{v.lastOrder}</td>
+                  <td><span className="badge" style={v.status==='active'?{background:'var(--accent-light)',color:'var(--accent)'}:{background:'oklch(94% 0.005 260)',color:'var(--fg-muted)'}}>{v.status}</span></td>
+                  <td><button className="action-btn">View</button></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    );
+  }
+
+  const navItems = [
+    { id:'dashboard', icon:'▦', label:'Dashboard' },
+    { id:'inventory', icon:'☰', label:'Inventory' },
+    { id:'orders', icon:'◎', label:'Orders' },
+    { id:'vendors', icon:'◈', label:'Vendors' },
+  ];
+
+  return (
+    <>
+      {/* SIDEBAR */}
+      <div className="sidebar">
+        <a className="sidebar-logo" href="index.html" style={{textDecoration:'none',cursor:'pointer'}} title="Back to home">
+          <div className="logo-mark">✦
+            <svg width="0" height="0" viewBox="0 0 14 14" fill="none" style={{display:'none'}}>
+              <path d="M7 1L13 7L7 13L1 7L7 1Z" fill="white"/>
+            </svg>
+          </div>
+          <span>Faith</span>
+        </a>
+        <nav className="sidebar-nav">
+          <div className="nav-section">Main</div>
+          {navItems.map(n => (
+            <a key={n.id} className={`nav-item ${activeNav===n.id?'active':''}`} onClick={()=>setActiveNav(n.id)} href="#">
+              <span style={{fontSize:'0.85rem'}}>{n.icon}</span>
+              {n.label}
+            </a>
+          ))}
+          <div className="nav-section">Settings</div>
+          <a className="nav-item" href="#">
+            <span style={{fontSize:'0.85rem'}}>⊕</span>Integrations
+          </a>
+          <a className="nav-item" href="#">
+            <span style={{fontSize:'0.85rem'}}>◉</span>Settings
+          </a>
+          <a className="nav-item" href="index.html">
+            <span style={{fontSize:'0.85rem'}}>←</span>Back to Site
+          </a>
+        </nav>
+        <div className="sidebar-footer">
+          <div className="sidebar-user">
+            <div className="user-avatar">JD</div>
+            <div className="user-info">
+              <div className="user-name">Jamie Doe</div>
+              <div className="user-role">Store Owner</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* MAIN CONTENT */}
+      <div className="main">
+        <div className="topbar">
+          <div>
+            <div className="topbar-title">{pageTitles[activeNav]}</div>
+          </div>
+          <div className="topbar-right">
+            {pendingDrafts > 0 && (
+              <div className="topbar-badge">✦ {pendingDrafts} Faith draft{pendingDrafts>1?'s':''} ready</div>
+            )}
+            <button className="sync-btn" onClick={handleSync}>
+              <svg width="13" height="13" viewBox="0 0 13 13" fill="none" style={{transform:syncing?'rotate(180deg)':'',transition:'transform 0.5s'}}>
+                <path d="M11 6.5A4.5 4.5 0 1 1 6.5 2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                <path d="M6.5 2L9 4.5M6.5 2L9 0" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+              </svg>
+              {syncing ? 'Syncing…' : 'Sync Sheets'}
+            </button>
+          </div>
+        </div>
+
+        {activeNav === 'inventory' && <InventoryPage/>}
+        {activeNav === 'orders' && <OrdersPage/>}
+        {activeNav === 'vendors' && <VendorsPage/>}
+        {activeNav === 'dashboard' && <div className="content">
+          {/* STAT ROW */}
+          <div className="stat-row">
+            <div className="stat-card" style={{cursor:'pointer'}} onClick={()=>setModal('skus')}>
+              <div className="stat-label">Total SKUs</div>
+              <div className="stat-val">{inventory.length}</div>
+              <div className="stat-sub">Across all categories ↗</div>
+            </div>
+            <div className="stat-card alert-card" style={{cursor:'pointer'}} onClick={()=>setModal('alerts')}>
+              <div className="stat-label">Low Stock Alerts</div>
+              <div className="stat-val">{alerts.length}</div>
+              <div className="stat-sub">{critical.length} critical, {alerts.length - critical.length} low ↗</div>
+            </div>
+            <div className="stat-card critical-card" style={{cursor:'pointer'}} onClick={()=>setModal('critical')}>
+              <div className="stat-label">Critical Items</div>
+              <div className="stat-val">{critical.length}</div>
+              <div className="stat-sub">Order immediately ↗</div>
+            </div>
+            <div className="stat-card" style={{cursor:'pointer'}} onClick={()=>setModal('drafts')}>
+              <div className="stat-label">Faith Drafts Ready</div>
+              <div className="stat-val">{pendingDrafts}</div>
+              <div className="stat-sub">Awaiting your approval ↗</div>
+            </div>
+          </div>
+
+          {/* TABLE + FAITH */}
+          <div className="two-col">
+            <div className="card">
+              <div className="card-header">
+                <div>
+                  <div className="card-title">Inventory</div>
+                  <div className="card-sub">Last synced from Google Sheets · just now</div>
+                </div>
+                <div className="filter-tabs">
+                  {[['all','All'],['alerts','Alerts'],['critical','Critical'],['good','Good']].map(([k,l]) => (
+                    <button key={k} className={`filter-tab ${filter===k?'active':''}`} onClick={()=>setFilter(k)}>{l}</button>
+                  ))}
+                </div>
+              </div>
+              <InventoryTable inventory={inventory} filter={filter}/>
+            </div>
+
+            <FaithPanel drafts={drafts} onApprove={handleApprove} onDismiss={handleDismiss}/>
+          </div>
+        </div>}
+      </div>
+
+      {/* TWEAKS PANEL */}
+      <div className={`tweaks-panel ${showTweaks?'visible':''}`}>
+        <div className="tweaks-title">
+          Tweaks
+          <button className="tweaks-close" onClick={()=>setShowTweaks(false)}>✕</button>
+        </div>
+
+        <div className="tweak-row">
+          <div className="tweak-label">Density</div>
+          <div className="tweak-options">
+            {['comfortable','compact'].map(opt => (
+              <button key={opt} className={`tweak-opt ${tweaks.density===opt?'selected':''}`} onClick={()=>updateTweak('density',opt)}>
+                {opt.charAt(0).toUpperCase()+opt.slice(1)}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="tweak-row">
+          <div className="tweak-label">Sidebar style</div>
+          <div className="tweak-options">
+            {['icons+labels','icons only'].map(opt => (
+              <button key={opt} className={`tweak-opt ${tweaks.sidebar===opt?'selected':''}`} onClick={()=>updateTweak('sidebar',opt)}>
+                {opt}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="tweak-row">
+          <div className="tweak-label">Auto-approve low stock</div>
+          <div className="tweak-toggle">
+            <span style={{fontSize:'0.78rem',color:'var(--fg-muted)'}}>Let Faith send without approval</span>
+            <div className={`toggle-switch ${tweaks.autoApprove?'on':''}`} onClick={()=>updateTweak('autoApprove',!tweaks.autoApprove)}>
+              <div className="toggle-knob"/>
+            </div>
+          </div>
+        </div>
+
+        <div className="tweak-row">
+          <div className="tweak-label">Accent color</div>
+          <div className="tweak-options">
+            {[['Sage','oklch(52% 0.13 160)'],['Blue','oklch(52% 0.13 230)'],['Violet','oklch(52% 0.13 290)']].map(([name, color]) => (
+              <button key={name} className={`tweak-opt ${tweaks.accent===color?'selected':''}`}
+                onClick={()=>{
+                  updateTweak('accent',color);
+                  document.documentElement.style.setProperty('--accent', color);
+                  document.documentElement.style.setProperty('--accent-light', color.replace('52%','94%').replace('0.13','0.04'));
+                }}>
+                {name}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* MODAL */}
+      {modal && (() => {
+        const configs = {
+          skus:     { title:'All SKUs',           subtitle:`${inventory.length} products tracked`,          filter:'all'      },
+          alerts:   { title:'Low Stock Alerts',   subtitle:`${alerts.length} items need restocking`,        filter:'alerts'   },
+          critical: { title:'Critical Items',     subtitle:`${critical.length} items need immediate orders`,filter:'critical' },
+          drafts:   { title:'Faith Drafts Ready', subtitle:`${pendingDrafts} emails awaiting approval`,     filter:null       },
+        };
+        const cfg = configs[modal];
+        const filtered = inventory.filter(i => {
+          if (!cfg.filter || cfg.filter==='all') return true;
+          if (cfg.filter==='alerts') return ['critical','low'].includes(getStatus(i.stock,i.safety));
+          if (cfg.filter==='critical') return getStatus(i.stock,i.safety)==='critical';
+          return true;
+        });
+        return (
+          <div style={{position:'fixed',inset:0,background:'oklch(0% 0 0 / 0.45)',zIndex:2000,display:'flex',alignItems:'center',justifyContent:'center',padding:'24px'}} onClick={()=>setModal(null)}>
+            <div style={{background:'var(--surface)',borderRadius:'16px',width:'100%',maxWidth:'720px',maxHeight:'80vh',display:'flex',flexDirection:'column',boxShadow:'0 24px 80px oklch(0% 0 0 / 0.2)',overflow:'hidden'}} onClick={e=>e.stopPropagation()}>
+              <div style={{padding:'20px 24px',borderBottom:'1px solid var(--border)',display:'flex',alignItems:'center',justifyContent:'space-between',flexShrink:0}}>
+                <div>
+                  <div style={{fontWeight:700,fontSize:'1rem',letterSpacing:'-0.02em'}}>{cfg.title}</div>
+                  <div style={{fontSize:'0.78rem',color:'var(--fg-muted)',marginTop:'2px'}}>{cfg.subtitle}</div>
+                </div>
+                <button onClick={()=>setModal(null)} style={{background:'none',border:'none',cursor:'pointer',fontSize:'1.1rem',color:'var(--fg-muted)',padding:'4px 8px',borderRadius:'6px',fontFamily:'inherit'}}>✕</button>
+              </div>
+              <div style={{overflowY:'auto',flex:1}}>
+                {modal==='drafts' ? (
+                  <div style={{padding:'16px',display:'flex',flexDirection:'column',gap:'12px'}}>
+                    {drafts.filter(d=>d.status==='pending').length===0
+                      ? <div style={{textAlign:'center',padding:'40px',color:'var(--fg-muted)',fontSize:'0.9rem'}}>All drafts processed — nothing pending.</div>
+                      : drafts.filter(d=>d.status==='pending').map(d=>(
+                          <DraftCard key={d.id} draft={d} onApprove={handleApprove} onDismiss={handleDismiss}/>
+                        ))
+                    }
+                  </div>
+                ) : (
+                  <table className="inv-table">
+                    <thead><tr><th>Product</th><th>Category</th><th>Stock</th><th>Safety</th><th>Status</th><th>Vendor</th></tr></thead>
+                    <tbody>
+                      {filtered.map(item=>{
+                        const status=getStatus(item.stock,item.safety);
+                        return (
+                          <tr key={item.id}>
+                            <td><div className="prod-name">{item.name}</div><div className="prod-sku">{item.sku}</div></td>
+                            <td style={{color:'var(--fg-muted)',fontSize:'0.8rem'}}>{item.category}</td>
+                            <td><StockBar stock={item.stock} safety={item.safety} status={status}/></td>
+                            <td style={{color:'var(--fg-muted)',fontSize:'0.82rem'}}>{item.safety} units</td>
+                            <td><StatusBadge status={status}/></td>
+                            <td style={{fontSize:'0.8rem',color:'var(--fg-muted)'}}>{item.vendor}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+              <div style={{padding:'14px 24px',borderTop:'1px solid var(--border)',display:'flex',justifyContent:'flex-end',gap:'8px',flexShrink:0}}>
+                {modal!=='drafts' && (
+                  <button className="action-btn" onClick={()=>{setActiveNav('inventory');setFilter(modal==='skus'?'all':modal==='alerts'?'alerts':'critical');setModal(null);}}>
+                    Open in Inventory →
+                  </button>
+                )}
+                <button onClick={()=>setModal(null)} style={{background:'var(--fg)',color:'#fff',border:'none',padding:'6px 16px',borderRadius:'8px',fontWeight:600,fontSize:'0.82rem',cursor:'pointer',fontFamily:'inherit'}}>Close</button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+    </>
+  );
+}
+
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(<App/>);
+</script>
+</body>
+</html>
