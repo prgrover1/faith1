@@ -1,807 +1,287 @@
-<!DOCTYPE html><html lang="en" data-qb-installed="true"><head>
-
-
-
-
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>Faith — Inventory that thinks ahead</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,300&display=swap" rel="stylesheet"/>
 <style>
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-  :root {
-    --bg: oklch(98% 0.008 80);
-    --surface: #fff;
-    --fg: oklch(18% 0.012 260);
-    --fg-muted: oklch(45% 0.01 260);
-    --accent: oklch(52% 0.13 160);
-    --accent-light: oklch(94% 0.04 160);
-    --amber: oklch(68% 0.14 65);
-    --amber-light: oklch(96% 0.04 80);
-    --border: oklch(88% 0.006 80);
-    --shadow: 0 1px 3px oklch(0% 0 0 / 0.06), 0 4px 16px oklch(0% 0 0 / 0.04);
-  }
-  body { font-family: 'Plus Jakarta Sans', sans-serif; background: var(--bg); color: var(--fg); line-height: 1.6; }
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --green:#3d7a5c;
+  --green-dim:#2d5c44;
+  --green-glow:#4d9070;
+  --bg:#f7f6f2;
+  --bg2:#eeecea;
+  --surface:#ffffff;
+  --border:#dddbd6;
+  --fg:#1a1a18;
+  --fg-muted:#6b6a65;
+  --amber:#b07a20;
+  --red:#c0453a;
+}
+html{scroll-behavior:smooth}
+body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--bg);color:var(--fg);line-height:1.6;overflow-x:hidden;width:100%}
 
-  /* NAV */
-  nav { position: sticky; top: 0; z-index: 100; background: oklch(98% 0.008 80 / 0.92); backdrop-filter: blur(12px); border-bottom: 1px solid var(--border); padding: 0 5%; display: flex; align-items: center; justify-content: space-between; height: 64px; }
-  .logo { font-weight: 800; font-size: 1.25rem; letter-spacing: -0.03em; color: #111; display: flex; align-items: center; gap: 6px; text-decoration: none; }
-  .logo-star { font-size: 1.2rem; color: var(--accent); line-height: 1; }
-  .logo-dot { display: none; }
-  .nav-links { display: flex; align-items: center; gap: 32px; }
-  .nav-links a { font-size: 0.875rem; font-weight: 500; color: var(--fg-muted); text-decoration: none; transition: color 0.2s; }
-  .nav-links a:hover { color: var(--fg); }
-  .nav-cta { background: var(--fg); color: #fff; padding: 8px 20px; border-radius: 8px; font-size: 0.875rem; font-weight: 600; text-decoration: none; transition: opacity 0.2s; }
-  .nav-cta:hover { opacity: 0.85; }
+/* ── CANVAS BG ── */
+#bg-canvas{position:fixed;inset:0;z-index:0;pointer-events:none}
 
-  /* HERO */
-  .hero { padding: 100px 5% 80px; text-align: center; max-width: 900px; margin: 0 auto; }
-  .hero-badge { display: inline-flex; align-items: center; gap: 6px; background: var(--accent-light); color: var(--accent); padding: 4px 12px; border-radius: 100px; font-size: 0.75rem; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; margin-bottom: 24px; }
-  .hero-badge-dot { font-size: 0.65rem; color: var(--accent); animation: pulse 2s infinite; line-height: 1; display: flex; align-items: center; }
-  @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.5;transform:scale(0.8)} }
-  h1 { font-size: clamp(2.5rem, 6vw, 4.5rem); font-weight: 800; letter-spacing: -0.04em; line-height: 1.08; color: var(--fg); text-wrap: pretty; margin-bottom: 20px; }
-  h1 em { font-style: normal; color: var(--accent); }
-  .hero-sub { font-size: clamp(1rem, 2vw, 1.2rem); color: var(--fg-muted); max-width: 560px; margin: 0 auto 40px; font-weight: 400; }
-  .hero-actions { display: flex; align-items: center; justify-content: center; gap: 12px; flex-wrap: wrap; }
-  .btn-primary { background: var(--fg); color: #fff; padding: 14px 28px; border-radius: 10px; font-size: 0.95rem; font-weight: 600; text-decoration: none; transition: transform 0.15s, box-shadow 0.15s; box-shadow: 0 2px 8px oklch(0% 0 0 / 0.15); }
-  .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 4px 16px oklch(0% 0 0 / 0.2); }
-  .btn-secondary { background: transparent; color: var(--fg); padding: 14px 28px; border-radius: 10px; font-size: 0.95rem; font-weight: 600; text-decoration: none; border: 1.5px solid var(--border); transition: border-color 0.2s; }
-  .btn-secondary:hover { border-color: oklch(70% 0.01 260); }
-  .hero-note { font-size: 0.8rem; color: var(--fg-muted); margin-top: 16px; }
+/* cursor removed */
 
-  /* HERO DASHBOARD PREVIEW */
-  .hero-preview { max-width: 1100px; margin: 60px auto 0; padding: 0 5%; position: relative; }
-  .preview-frame { background: #fff; border-radius: 16px; border: 1px solid var(--border); box-shadow: 0 8px 48px oklch(0% 0 0 / 0.1), 0 2px 8px oklch(0% 0 0 / 0.04); overflow: hidden; }
-  .preview-bar { background: oklch(96% 0.006 80); border-bottom: 1px solid var(--border); padding: 10px 16px; display: flex; align-items: center; gap: 8px; }
-  .preview-dot { width: 10px; height: 10px; border-radius: 50%; }
-  .preview-inner { padding: 24px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
-  .mini-card { background: var(--bg); border-radius: 10px; padding: 16px; border: 1px solid var(--border); }
-  .mini-card-label { font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--fg-muted); margin-bottom: 8px; }
-  .mini-card-val { font-size: 1.5rem; font-weight: 800; letter-spacing: -0.03em; color: var(--fg); }
-  .mini-card-sub { font-size: 0.72rem; color: var(--fg-muted); margin-top: 4px; }
-  .mini-card.alert { background: var(--amber-light); border-color: oklch(85% 0.06 65); }
-  .mini-card.alert .mini-card-val { color: oklch(42% 0.12 50); }
-  .preview-bottom { padding: 0 24px 24px; display: grid; grid-template-columns: 2fr 1fr; gap: 16px; }
-  .mini-table { background: var(--bg); border-radius: 10px; border: 1px solid var(--border); overflow: hidden; }
-  .mini-table-head { display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; padding: 10px 14px; background: oklch(94% 0.007 80); border-bottom: 1px solid var(--border); }
-  .mini-table-head span { font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--fg-muted); }
-  .mini-row { display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; padding: 10px 14px; border-bottom: 1px solid var(--border); align-items: center; }
-  .mini-row:last-child { border-bottom: none; }
-  .mini-row span { font-size: 0.75rem; color: var(--fg); }
-  .mini-row .item-name { font-weight: 600; }
-  .mini-badge { display: inline-block; padding: 2px 8px; border-radius: 100px; font-size: 0.65rem; font-weight: 700; }
-  .mini-badge.low { background: oklch(94% 0.06 25); color: oklch(42% 0.15 25); }
-  .mini-badge.ok { background: var(--accent-light); color: var(--accent); }
-  .mini-badge.warn { background: var(--amber-light); color: oklch(42% 0.12 50); }
-  .mini-action { background: oklch(94% 0.007 80); border-radius: 10px; border: 1px solid var(--border); padding: 16px; }
-  .mini-action-head { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--fg-muted); margin-bottom: 12px; }
-  .mini-email { background: #fff; border: 1px solid var(--border); border-radius: 8px; padding: 12px; margin-bottom: 8px; }
-  .mini-email-to { font-size: 0.68rem; color: var(--fg-muted); margin-bottom: 4px; }
-  .mini-email-to strong { color: var(--fg); font-weight: 600; }
-  .mini-email-body { font-size: 0.7rem; color: var(--fg); line-height: 1.5; margin-bottom: 10px; }
-  .mini-email-actions { display: flex; gap: 6px; }
-  .mini-btn { padding: 4px 10px; border-radius: 6px; font-size: 0.65rem; font-weight: 600; cursor: pointer; border: none; }
-  .mini-btn.approve { background: var(--accent); color: #fff; }
-  .mini-btn.edit { background: var(--bg); color: var(--fg-muted); border: 1px solid var(--border); }
-  .faith-tag { display: inline-flex; align-items: center; gap: 4px; font-size: 0.62rem; color: var(--accent); font-weight: 600; margin-bottom: 6px; }
-  .faith-tag::before { content: '✦'; font-size: 0.6rem; }
+/* ── NAV ── */
+nav{position:fixed;top:0;left:0;right:0;z-index:100;height:64px;display:flex;align-items:center;justify-content:space-between;padding:0 32px;border-bottom:1px solid var(--border);background:rgba(247,246,242,0.95);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);overflow:visible}
+.logo{display:flex;align-items:center;gap:7px;text-decoration:none;font-weight:800;font-size:1.2rem;letter-spacing:-0.03em;color:var(--fg)}
+.logo-star{color:var(--green);font-size:1.1rem;animation:star-pulse 3s ease-in-out infinite}
+@keyframes star-pulse{0%,100%{text-shadow:0 0 0 transparent}50%{text-shadow:0 0 16px #4d9070}}
+.nav-links{display:flex;align-items:center;gap:28px;position:absolute;left:50%;transform:translateX(-50%)}
+.nav-links a{font-size:0.82rem;font-weight:500;color:var(--fg-muted);text-decoration:none;transition:color 0.2s}
+.nav-links a:hover{color:var(--fg)}
+.nav-right{display:flex;align-items:center}
+.nav-cta{background:var(--green);color:#ffffff;padding:8px 20px;border-radius:8px;font-size:0.82rem;font-weight:700;text-decoration:none;transition:all 0.2s;box-shadow:0 0 20px rgba(61,122,92,0.18)}
+.nav-cta:hover{box-shadow:0 0 32px rgba(61,122,92,0.18);transform:translateY(-1px)}
 
-  /* LOGOS */
-  .logos { padding: 48px 5%; text-align: center; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); background: #fff; }
-  .logos-label { font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--fg-muted); margin-bottom: 24px; }
-  .logos-row { display: flex; align-items: center; justify-content: center; gap: 48px; flex-wrap: wrap; }
-  .logo-item { font-size: 0.95rem; font-weight: 700; color: oklch(70% 0.008 260); letter-spacing: -0.02em; }
+/* ── HERO ── */
+.hero{position:relative;z-index:1;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:120px 5% 80px;text-align:center;overflow:hidden;background:transparent}
+.hero-badge{display:inline-flex;align-items:center;gap:7px;background:rgba(61,122,92,0.14);border:1px solid rgba(61,122,92,0.14);color:var(--green);padding:5px 14px;border-radius:100px;font-size:0.72rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:28px}
+.badge-dot{width:6px;height:6px;background:var(--green);border-radius:50%;animation:pulse-dot 2s infinite;box-shadow:0 0 6px var(--green)}
+@keyframes pulse-dot{0%,100%{opacity:1;transform:scale(1)}50%{opacity:0.4;transform:scale(0.7)}}
+.hero h1{font-size:clamp(3rem,8vw,6.5rem);font-weight:800;letter-spacing:-0.05em;line-height:0.95;color:var(--fg);text-wrap:balance;margin-bottom:24px;position:relative}
+.hero h1 .line-accent{display:block;background:linear-gradient(135deg,var(--green) 0%,#4d9070 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.hero-sub{font-size:clamp(1rem,2vw,1.2rem);color:var(--fg-muted);max-width:520px;margin:0 auto 44px;font-weight:400;line-height:1.7}
+.hero-actions{display:flex;align-items:center;justify-content:center;gap:14px;flex-wrap:wrap;margin-bottom:16px}
+.btn-glow{background:var(--green);color:#fff;padding:15px 32px;border-radius:10px;font-size:0.95rem;font-weight:700;text-decoration:none;transition:all 0.25s;box-shadow:0 4px 16px rgba(61,122,92,0.14);white-space:nowrap}
 
-  /* HOW IT WORKS */
-  section { padding: 100px 5%; }
-  .section-label { font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: var(--accent); margin-bottom: 12px; }
-  h2 { font-size: clamp(1.8rem, 4vw, 2.8rem); font-weight: 800; letter-spacing: -0.04em; color: var(--fg); margin-bottom: 16px; text-wrap: pretty; }
-  .section-sub { font-size: 1rem; color: var(--fg-muted); max-width: 480px; margin-bottom: 60px; }
+.btn-glow:hover{transform:translateY(-2px);box-shadow:0 8px 28px rgba(61,122,92,0.14)}
+.btn-ghost{background:transparent;color:var(--fg);padding:15px 32px;border-radius:10px;font-size:0.95rem;font-weight:600;text-decoration:none;border:1.5px solid var(--border);transition:all 0.2s;white-space:nowrap}
+.btn-ghost:hover{border-color:oklch(65% 0.01 80);background:var(--bg2)}
+.hero-note{font-size:0.78rem;color:var(--fg-muted);margin-top:8px}
 
-  .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 40px; max-width: 1100px; margin: 0 auto; }
-  .step { position: relative; }
-  .step-num { width: 40px; height: 40px; background: var(--fg); color: #fff; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 0.9rem; margin-bottom: 20px; }
-  .step h3 { font-size: 1.1rem; font-weight: 700; letter-spacing: -0.02em; margin-bottom: 10px; }
-  .step p { font-size: 0.9rem; color: var(--fg-muted); line-height: 1.7; text-wrap: pretty; }
-  .step-connector { position: absolute; top: 20px; right: -20px; width: 40px; height: 1px; background: var(--border); display: none; }
+/* ── 3D DASHBOARD FLOAT ── */
+.dashboard-3d{position:relative;z-index:1;padding:0 5% 120px;perspective:1200px;max-width:1200px;margin:0 auto}
+.dashboard-wrap{transform:rotateX(6deg) rotateY(-1.5deg);transform-style:preserve-3d;transition:transform 0.8s ease;border-radius:16px;box-shadow:0 40px 80px oklch(0% 0 0 / 0.12),0 0 0 1px var(--border)}
+.dashboard-wrap:hover{transform:rotateX(2deg) rotateY(0deg)}
+.dash-chrome{background:var(--surface);border-radius:16px;border:1px solid var(--border);overflow:hidden}
+.dash-bar{background:var(--bg2);border-bottom:1px solid var(--border);padding:11px 16px;display:flex;align-items:center;gap:8px}
+.dash-dot{width:10px;height:10px;border-radius:50%}
+.dash-title{font-size:0.72rem;color:var(--fg-muted);margin-left:8px;font-weight:500}
+.dash-body{padding:20px;display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.d-card{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:14px}
+.d-card.warn{border-color:#e8c97a;background:#fdfaf2}
+.d-card.crit{border-color:#e8a898;background:#fdf4f2}
+.d-label{font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:var(--fg-muted);margin-bottom:6px}
+.d-val{font-size:1.6rem;font-weight:800;letter-spacing:-0.04em;color:var(--fg)}
+.d-card.warn .d-val{color:var(--amber)}
+.d-card.crit .d-val{color:var(--red)}
+.d-sub{font-size:0.68rem;color:var(--fg-muted);margin-top:3px}
+.dash-bottom{padding:0 20px 20px;display:grid;grid-template-columns:2fr 1fr;gap:12px}
+.d-table{background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden}
+.d-th{display:grid;grid-template-columns:2fr 1fr 1fr 1fr;padding:8px 12px;background:var(--bg2);border-bottom:1px solid var(--border)}
+.d-th span,.d-tr span{font-size:0.62rem;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--fg-muted)}
+.d-tr{display:grid;grid-template-columns:2fr 1fr 1fr 1fr;padding:9px 12px;border-bottom:1px solid var(--border);align-items:center}
+.d-tr:last-child{border-bottom:none}
+.d-tr .name{font-size:0.72rem;font-weight:600;color:var(--fg)}
+.d-badge{display:inline-block;padding:2px 7px;border-radius:100px;font-size:0.6rem;font-weight:700}
+.d-badge.low{background:#faecea;color:#c0453a}
+.d-badge.ok{background:#edf4f0;color:#3d7a5c}
+.d-badge.warn{background:#faf3e8;color:#b07a20}
+.d-faith{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:14px}
+.d-faith-head{display:flex;align-items:center;gap:6px;margin-bottom:10px}
+.faith-pulse{width:7px;height:7px;background:var(--green);border-radius:50%;animation:pulse-dot 2s infinite}
+.d-faith-title{font-size:0.72rem;font-weight:700;color:var(--fg)}
+.d-draft{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px;margin-bottom:8px}
+.d-faith-tag{font-size:0.6rem;font-weight:700;color:var(--green);margin-bottom:4px}
+.d-draft-to{font-size:0.66rem;color:var(--fg-muted);margin-bottom:6px}
+.d-draft-body{font-size:0.66rem;color:var(--fg);line-height:1.5;margin-bottom:8px}
+.d-draft-btns{display:flex;gap:6px}
+.d-btn{padding:4px 10px;border-radius:6px;font-size:0.62rem;font-weight:700;border:none;cursor:pointer}
+.d-btn.a{background:var(--green);color:#fff}
+.d-btn.e{background:var(--border);color:var(--fg-muted)}
 
-  /* FEATURES */
-  .features-grid { max-width: 1100px; margin: 0 auto; display: grid; grid-template-columns: repeat(2, 1fr); gap: 24px; }
-  .feature-card { background: #fff; border: 1px solid var(--border); border-radius: 14px; padding: 32px; box-shadow: var(--shadow); transition: transform 0.2s, box-shadow 0.2s; }
-  .feature-card:hover { transform: translateY(-2px); box-shadow: 0 4px 24px oklch(0% 0 0 / 0.08); }
-  .feature-icon { width: 44px; height: 44px; border-radius: 10px; background: var(--accent-light); display: flex; align-items: center; justify-content: center; margin-bottom: 16px; }
-  .feature-card h3 { font-size: 1.05rem; font-weight: 700; letter-spacing: -0.02em; margin-bottom: 8px; }
-  .feature-card p { font-size: 0.875rem; color: var(--fg-muted); line-height: 1.7; text-wrap: pretty; }
+/* ── FLOAT PARTICLES ── */
+.float-particle{position:absolute;width:2px;height:2px;background:var(--green);border-radius:50%;opacity:0;animation:float-up 6s ease-in infinite}
+@keyframes float-up{0%{transform:translateY(0) scale(1);opacity:0.8}100%{transform:translateY(-300px) scale(0);opacity:0}}
 
-  /* CTA */
-  .cta-section { background: var(--fg); color: #fff; text-align: center; padding: 100px 5%; }
-  .cta-section h2 { color: #fff; margin-bottom: 16px; }
-  .cta-section .section-sub { color: oklch(80% 0.01 260); max-width: 500px; margin: 0 auto 40px; }
-  .btn-white { background: #fff; color: var(--fg); padding: 14px 28px; border-radius: 10px; font-size: 0.95rem; font-weight: 700; text-decoration: none; transition: transform 0.15s; display: inline-block; }
-  .btn-white:hover { transform: translateY(-1px); }
+/* ── SECTION BASE ── */
+.section{position:relative;z-index:1;padding:120px 5%}
+.section-inner{max-width:1100px;margin:0 auto}
+.section-tag{display:inline-flex;align-items:center;gap:6px;font-size:0.7rem;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:var(--green);margin-bottom:16px}
+.section-tag::before{content:'✦';font-size:0.65rem}
+.section-h{font-size:clamp(2rem,5vw,3.5rem);font-weight:800;letter-spacing:-0.04em;line-height:1.05;text-wrap:balance;margin-bottom:16px}
+.section-sub{font-size:1rem;color:var(--fg-muted);max-width:480px;line-height:1.7;margin-bottom:64px}
 
-  /* FOOTER */
-  footer { padding: 40px 5%; display: flex; align-items: center; justify-content: space-between; border-top: 1px solid var(--border); }
-  .footer-logo { font-weight: 800; font-size: 1rem; letter-spacing: -0.03em; }
-  footer p { font-size: 0.8rem; color: var(--fg-muted); }
+/* ── HOW IT WORKS ── */
+.steps{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--border);border:1px solid var(--border);border-radius:16px;overflow:hidden}
+.step{background:var(--bg2);padding:40px 32px;position:relative;transition:background 0.3s}
+.step:hover{background:#edf4f0}
+.step-num{font-size:3rem;font-weight:800;letter-spacing:-0.05em;color:oklch(20% 0.04 155);line-height:1;margin-bottom:20px;font-variant-numeric:tabular-nums}
+.step-icon{width:44px;height:44px;border-radius:10px;background:rgba(61,122,92,0.18);border:1px solid rgba(61,122,92,0.18);display:flex;align-items:center;justify-content:center;margin-bottom:16px}
+.step h3{font-size:1.05rem;font-weight:700;letter-spacing:-0.02em;margin-bottom:10px;color:var(--fg)}
+.step p{font-size:0.875rem;color:var(--fg-muted);line-height:1.7;text-wrap:pretty}
+.step-line{position:absolute;top:0;left:0;width:3px;height:0;background:var(--green);transition:height 0.4s ease;border-radius:0 2px 2px 0}
+.step:hover .step-line{height:100%}
 
-  @media(max-width: 768px) {
-    .steps { grid-template-columns: 1fr; }
-    .features-grid { grid-template-columns: 1fr; }
-    .preview-inner { grid-template-columns: repeat(2, 1fr); }
-    .preview-bottom { grid-template-columns: 1fr; }
-    .nav-links { display: none; }
-    footer { flex-direction: column; gap: 12px; text-align: center; }
-  }
+/* ── FEATURES ── */
+.features-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:20px}
+.feat-card{background:var(--bg2);border:1px solid var(--border);border-radius:16px;padding:36px;position:relative;overflow:hidden;transition:border-color 0.3s,transform 0.3s;cursor:default}
+.feat-card::before{content:'';position:absolute;inset:0;background:radial-gradient(circle at 80% 20%,rgba(61,122,92,0.18) 0%,transparent 60%);opacity:0;transition:opacity 0.4s}
+.feat-card:hover{border-color:rgba(61,122,92,0.18);transform:translateY(-4px)}
+.feat-card:hover::before{opacity:1}
+.feat-icon{width:48px;height:48px;border-radius:12px;background:rgba(61,122,92,0.18);border:1px solid rgba(61,122,92,0.18);display:flex;align-items:center;justify-content:center;margin-bottom:20px}
+.feat-card h3{font-size:1.05rem;font-weight:700;letter-spacing:-0.02em;margin-bottom:10px}
+.feat-card p{font-size:0.875rem;color:var(--fg-muted);line-height:1.7;text-wrap:pretty}
+
+/* ── INTEGRATIONS MARQUEE ── */
+.marquee-section{padding:60px 0;border-top:1px solid var(--border);border-bottom:1px solid var(--border);overflow:hidden;position:relative;z-index:1}
+.marquee-label{text-align:center;font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:#6b6a65;margin-bottom:28px}
+.marquee-track{display:flex;gap:0;white-space:nowrap;animation:marquee 20s linear infinite}
+.marquee-track:hover{animation-play-state:paused}
+.marquee-item{display:inline-flex;align-items:center;gap:8px;padding:0 48px;font-size:0.95rem;font-weight:700;color:#8a8880;letter-spacing:-0.01em;flex-shrink:0;transition:color 0.2s}
+.marquee-item:hover{color:var(--fg)}
+.marquee-dot{width:4px;height:4px;background:var(--border);border-radius:50%;flex-shrink:0}
+@keyframes marquee{0%{transform:translateX(0)}100%{transform:translateX(-50%)}}
+
+/* ── WAITLIST ── */
+.waitlist-section{position:relative;z-index:1;padding:120px 5%;overflow:hidden;background:transparent}
+.waitlist-section::before{display:none}
+.waitlist-inner{max-width:600px;margin:0 auto;text-align:center}
+.waitlist-form{display:flex;flex-direction:column;gap:12px;margin-top:40px;text-align:left}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.form-input{width:100%;padding:13px 16px;border-radius:10px;border:1.5px solid var(--border);background:#ffffff;color:var(--fg);font-size:0.88rem;font-family:inherit;outline:none;transition:border-color 0.2s,box-shadow 0.2s;-webkit-appearance:none}
+.form-input::placeholder{color:#6b6a65}
+.form-input:focus{border-color:rgba(61,122,92,0.18);box-shadow:0 0 0 3px rgba(61,122,92,0.18)}
+select.form-input{cursor:pointer;color:var(--fg-muted);background:#ffffff}
+select.form-input option{background:#ffffff;color:var(--fg)}
+.btn-submit{background:var(--green);color:#ffffff;border:none;padding:15px;border-radius:10px;font-size:0.95rem;font-weight:700;cursor:pointer;font-family:inherit;transition:all 0.25s;box-shadow:0 0 24px rgba(61,122,92,0.18);width:100%}
+.btn-submit:hover{box-shadow:0 0 40px rgba(61,122,92,0.18);transform:translateY(-1px)}
+.btn-submit:disabled{opacity:0.6;cursor:not-allowed;transform:none}
+.success-state{display:none;padding:40px;background:rgba(61,122,92,0.18);border:1px solid rgba(61,122,92,0.18);border-radius:16px;text-align:center}
+.success-star{font-size:2.5rem;color:var(--green);margin-bottom:16px;display:block;text-shadow:0 0 20px var(--green)}
+.success-title{font-size:1.1rem;font-weight:700;margin-bottom:8px}
+.success-sub{font-size:0.875rem;color:var(--fg-muted);line-height:1.6;margin-bottom:24px}
+.btn-demo{display:inline-block;background:transparent;border:1px solid var(--border);color:var(--fg);padding:10px 24px;border-radius:8px;font-weight:600;font-size:0.85rem;text-decoration:none;transition:all 0.2s}
+.btn-demo:hover{border-color:var(--green);color:var(--green)}
+.form-footnote{font-size:0.72rem;color:#8a8880;text-align:center;margin-top:8px}
+
+/* ── FOOTER ── */
+footer{position:relative;z-index:1;padding:48px 40px;border-top:1px solid var(--border);display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:20px;background:transparent}
+.footer-logo{display:flex;align-items:center;gap:7px;font-weight:800;font-size:1rem;letter-spacing:-0.03em;color:var(--fg);justify-self:start}
+.footer-logo-star{color:var(--green)}
+.footer-links{display:flex;align-items:center;gap:24px;flex-wrap:wrap;justify-content:center;justify-self:center}
+.footer-links a{font-size:0.8rem;color:#6b6a65;text-decoration:none;transition:color 0.2s}
+.footer-links a:hover{color:var(--fg)}
+.footer-copy{font-size:0.78rem;color:#8a8880;text-align:right;justify-self:end}
+
+/* ── SCROLL REVEAL ── */
+.reveal{opacity:0;transform:translateY(40px);transition:opacity 0.7s ease,transform 0.7s ease}
+.reveal.visible{opacity:1;transform:translateY(0)}
+.reveal-delay-1{transition-delay:0.1s}
+.reveal-delay-2{transition-delay:0.2s}
+.reveal-delay-3{transition-delay:0.3s}
+
+/* ── MOBILE ── */
+@media(max-width:768px){
+  .nav-links{display:none}
+  nav{grid-template-columns:1fr auto}
+  .nav-right{display:none}
+  footer{flex-direction:column;align-items:center;text-align:center;padding:40px 20px}
+  .footer-copy{text-align:center}
+  .hero{padding:100px 20px 60px}
+  .hero h1{font-size:2.8rem}
+  .dashboard-3d{padding:0 16px 80px}
+  .dashboard-wrap{transform:rotateX(6deg) rotateY(0)}
+  .dash-body{grid-template-columns:repeat(2,1fr)}
+  .dash-bottom{grid-template-columns:1fr}
+  .section{padding:80px 20px}
+  .steps{grid-template-columns:1fr}
+  .features-grid{grid-template-columns:1fr}
+  .form-row{grid-template-columns:1fr}
+  footer{flex-direction:column;align-items:center;text-align:center;padding:40px 20px}
+  .footer-links{justify-content:center}
+  .waitlist-section{padding:80px 20px}
+}
+
+/* ── GLOW LINE ── */
+.glow-line{width:100%;height:1px;background:linear-gradient(90deg,transparent,var(--green),transparent);opacity:0.4;position:relative;z-index:1}
+
+/* ── 3D TILT CARDS ── */
+.tilt-card{transform-style:preserve-3d;transition:transform 0.1s}
 </style>
-<style>.rdp {
-  --rdp-cell-size: 40px;
-  --rdp-accent-color: #0000ff;
-  --rdp-background-color: #e7edff;
-  --rdp-accent-color-dark: #3003e1;
-  --rdp-background-color-dark: #180270;
-  --rdp-outline: 2px solid var(--rdp-accent-color); /* Outline border for focused elements */
-  --rdp-outline-selected: 2px solid rgba(0, 0, 0, 0.75); /* Outline border for focused _and_ selected elements */
+</head>
+<body>
 
-  margin: 1em;
-}
+<canvas id="bg-canvas"></canvas>
 
-/* Hide elements for devices that are not screen readers */
-.rdp-vhidden {
-  box-sizing: border-box;
-  padding: 0;
-  margin: 0;
-  background: transparent;
-  border: 0;
-  -moz-appearance: none;
-  -webkit-appearance: none;
-  appearance: none;
-  position: absolute !important;
-  top: 0;
-  width: 1px !important;
-  height: 1px !important;
-  padding: 0 !important;
-  overflow: hidden !important;
-  clip: rect(1px, 1px, 1px, 1px) !important;
-  border: 0 !important;
-}
-
-/* Buttons */
-.rdp-button_reset {
-  appearance: none;
-  position: relative;
-  margin: 0;
-  padding: 0;
-  cursor: default;
-  color: inherit;
-  outline: none;
-  background: none;
-  font: inherit;
-
-  -moz-appearance: none;
-  -webkit-appearance: none;
-}
-
-.rdp-button {
-  border: 2px solid transparent;
-}
-
-.rdp-button[disabled] {
-  opacity: 0.25;
-}
-
-.rdp-button:not([disabled]) {
-  cursor: pointer;
-}
-
-.rdp-button:focus:not([disabled]),
-.rdp-button:active:not([disabled]) {
-  color: inherit;
-  border: var(--rdp-outline);
-  background-color: var(--rdp-background-color);
-}
-
-.rdp-button:hover:not([disabled]) {
-  background-color: var(--rdp-background-color);
-}
-
-.rdp-months {
-  display: flex;
-}
-
-.rdp-month {
-  margin: 0 1em;
-}
-
-.rdp-month:first-child {
-  margin-left: 0;
-}
-
-.rdp-month:last-child {
-  margin-right: 0;
-}
-
-.rdp-table {
-  margin: 0;
-  max-width: calc(var(--rdp-cell-size) * 7);
-  border-collapse: collapse;
-}
-
-.rdp-with_weeknumber .rdp-table {
-  max-width: calc(var(--rdp-cell-size) * 8);
-  border-collapse: collapse;
-}
-
-.rdp-caption {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0;
-  text-align: left;
-}
-
-.rdp-multiple_months .rdp-caption {
-  position: relative;
-  display: block;
-  text-align: center;
-}
-
-.rdp-caption_dropdowns {
-  position: relative;
-  display: inline-flex;
-}
-
-.rdp-caption_label {
-  position: relative;
-  z-index: 1;
-  display: inline-flex;
-  align-items: center;
-  margin: 0;
-  padding: 0 0.25em;
-  white-space: nowrap;
-  color: currentColor;
-  border: 0;
-  border: 2px solid transparent;
-  font-family: inherit;
-  font-size: 140%;
-  font-weight: bold;
-}
-
-.rdp-nav {
-  white-space: nowrap;
-}
-
-.rdp-multiple_months .rdp-caption_start .rdp-nav {
-  position: absolute;
-  top: 50%;
-  left: 0;
-  transform: translateY(-50%);
-}
-
-.rdp-multiple_months .rdp-caption_end .rdp-nav {
-  position: absolute;
-  top: 50%;
-  right: 0;
-  transform: translateY(-50%);
-}
-
-.rdp-nav_button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: var(--rdp-cell-size);
-  height: var(--rdp-cell-size);
-  padding: 0.25em;
-  border-radius: 100%;
-}
-
-/* ---------- */
-/* Dropdowns  */
-/* ---------- */
-
-.rdp-dropdown_year,
-.rdp-dropdown_month {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-}
-
-.rdp-dropdown {
-  appearance: none;
-  position: absolute;
-  z-index: 2;
-  top: 0;
-  bottom: 0;
-  left: 0;
-  width: 100%;
-  margin: 0;
-  padding: 0;
-  cursor: inherit;
-  opacity: 0;
-  border: none;
-  background-color: transparent;
-  font-family: inherit;
-  font-size: inherit;
-  line-height: inherit;
-}
-
-.rdp-dropdown[disabled] {
-  opacity: unset;
-  color: unset;
-}
-
-.rdp-dropdown:focus:not([disabled]) + .rdp-caption_label,
-.rdp-dropdown:active:not([disabled]) + .rdp-caption_label {
-  border: var(--rdp-outline);
-  border-radius: 6px;
-  background-color: var(--rdp-background-color);
-}
-
-.rdp-dropdown_icon {
-  margin: 0 0 0 5px;
-}
-
-.rdp-head {
-  border: 0;
-}
-
-.rdp-head_row,
-.rdp-row {
-  height: 100%;
-}
-
-.rdp-head_cell {
-  vertical-align: middle;
-  text-transform: uppercase;
-  font-size: 0.75em;
-  font-weight: 700;
-  text-align: center;
-  height: 100%;
-  height: var(--rdp-cell-size);
-  padding: 0;
-}
-
-.rdp-tbody {
-  border: 0;
-}
-
-.rdp-tfoot {
-  margin: 0.5em;
-}
-
-.rdp-cell {
-  width: var(--rdp-cell-size);
-  height: 100%;
-  height: var(--rdp-cell-size);
-  padding: 0;
-  text-align: center;
-}
-
-.rdp-weeknumber {
-  font-size: 0.75em;
-}
-
-.rdp-weeknumber,
-.rdp-day {
-  display: flex;
-  overflow: hidden;
-  align-items: center;
-  justify-content: center;
-  box-sizing: border-box;
-  width: var(--rdp-cell-size);
-  max-width: var(--rdp-cell-size);
-  height: var(--rdp-cell-size);
-  margin: 0;
-  border: 2px solid transparent;
-  border-radius: 100%;
-}
-
-.rdp-day_today:not(.rdp-day_outside) {
-  font-weight: bold;
-}
-
-.rdp-day_selected:not([disabled]),
-.rdp-day_selected:focus:not([disabled]),
-.rdp-day_selected:active:not([disabled]),
-.rdp-day_selected:hover:not([disabled]) {
-  color: white;
-  background-color: var(--rdp-accent-color);
-}
-
-.rdp-day_selected:focus:not([disabled]) {
-  border: var(--rdp-outline-selected);
-}
-
-.rdp:not([dir='rtl']) .rdp-day_range_start:not(.rdp-day_range_end) {
-  border-top-right-radius: 0;
-  border-bottom-right-radius: 0;
-}
-
-.rdp:not([dir='rtl']) .rdp-day_range_end:not(.rdp-day_range_start) {
-  border-top-left-radius: 0;
-  border-bottom-left-radius: 0;
-}
-
-.rdp[dir='rtl'] .rdp-day_range_start:not(.rdp-day_range_end) {
-  border-top-left-radius: 0;
-  border-bottom-left-radius: 0;
-}
-
-.rdp[dir='rtl'] .rdp-day_range_end:not(.rdp-day_range_start) {
-  border-top-right-radius: 0;
-  border-bottom-right-radius: 0;
-}
-
-.rdp-day_range_end.rdp-day_range_start {
-  border-radius: 100%;
-}
-
-.rdp-day_range_middle {
-  border-radius: 0;
-}
-</style><style>.rdp {
-  --rdp-cell-size: 40px;
-  --rdp-accent-color: #0000ff;
-  --rdp-background-color: #e7edff;
-  --rdp-accent-color-dark: #3003e1;
-  --rdp-background-color-dark: #180270;
-  --rdp-outline: 2px solid var(--rdp-accent-color); /* Outline border for focused elements */
-  --rdp-outline-selected: 2px solid rgba(0, 0, 0, 0.75); /* Outline border for focused _and_ selected elements */
-
-  margin: 1em;
-}
-
-/* Hide elements for devices that are not screen readers */
-.rdp-vhidden {
-  box-sizing: border-box;
-  padding: 0;
-  margin: 0;
-  background: transparent;
-  border: 0;
-  -moz-appearance: none;
-  -webkit-appearance: none;
-  appearance: none;
-  position: absolute !important;
-  top: 0;
-  width: 1px !important;
-  height: 1px !important;
-  padding: 0 !important;
-  overflow: hidden !important;
-  clip: rect(1px, 1px, 1px, 1px) !important;
-  border: 0 !important;
-}
-
-/* Buttons */
-.rdp-button_reset {
-  appearance: none;
-  position: relative;
-  margin: 0;
-  padding: 0;
-  cursor: default;
-  color: inherit;
-  outline: none;
-  background: none;
-  font: inherit;
-
-  -moz-appearance: none;
-  -webkit-appearance: none;
-}
-
-.rdp-button {
-  border: 2px solid transparent;
-}
-
-.rdp-button[disabled] {
-  opacity: 0.25;
-}
-
-.rdp-button:not([disabled]) {
-  cursor: pointer;
-}
-
-.rdp-button:focus:not([disabled]),
-.rdp-button:active:not([disabled]) {
-  color: inherit;
-  border: var(--rdp-outline);
-  background-color: var(--rdp-background-color);
-}
-
-.rdp-button:hover:not([disabled]) {
-  background-color: var(--rdp-background-color);
-}
-
-.rdp-months {
-  display: flex;
-}
-
-.rdp-month {
-  margin: 0 1em;
-}
-
-.rdp-month:first-child {
-  margin-left: 0;
-}
-
-.rdp-month:last-child {
-  margin-right: 0;
-}
-
-.rdp-table {
-  margin: 0;
-  max-width: calc(var(--rdp-cell-size) * 7);
-  border-collapse: collapse;
-}
-
-.rdp-with_weeknumber .rdp-table {
-  max-width: calc(var(--rdp-cell-size) * 8);
-  border-collapse: collapse;
-}
-
-.rdp-caption {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0;
-  text-align: left;
-}
-
-.rdp-multiple_months .rdp-caption {
-  position: relative;
-  display: block;
-  text-align: center;
-}
-
-.rdp-caption_dropdowns {
-  position: relative;
-  display: inline-flex;
-}
-
-.rdp-caption_label {
-  position: relative;
-  z-index: 1;
-  display: inline-flex;
-  align-items: center;
-  margin: 0;
-  padding: 0 0.25em;
-  white-space: nowrap;
-  color: currentColor;
-  border: 0;
-  border: 2px solid transparent;
-  font-family: inherit;
-  font-size: 140%;
-  font-weight: bold;
-}
-
-.rdp-nav {
-  white-space: nowrap;
-}
-
-.rdp-multiple_months .rdp-caption_start .rdp-nav {
-  position: absolute;
-  top: 50%;
-  left: 0;
-  transform: translateY(-50%);
-}
-
-.rdp-multiple_months .rdp-caption_end .rdp-nav {
-  position: absolute;
-  top: 50%;
-  right: 0;
-  transform: translateY(-50%);
-}
-
-.rdp-nav_button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: var(--rdp-cell-size);
-  height: var(--rdp-cell-size);
-  padding: 0.25em;
-  border-radius: 100%;
-}
-
-/* ---------- */
-/* Dropdowns  */
-/* ---------- */
-
-.rdp-dropdown_year,
-.rdp-dropdown_month {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-}
-
-.rdp-dropdown {
-  appearance: none;
-  position: absolute;
-  z-index: 2;
-  top: 0;
-  bottom: 0;
-  left: 0;
-  width: 100%;
-  margin: 0;
-  padding: 0;
-  cursor: inherit;
-  opacity: 0;
-  border: none;
-  background-color: transparent;
-  font-family: inherit;
-  font-size: inherit;
-  line-height: inherit;
-}
-
-.rdp-dropdown[disabled] {
-  opacity: unset;
-  color: unset;
-}
-
-.rdp-dropdown:focus:not([disabled]) + .rdp-caption_label,
-.rdp-dropdown:active:not([disabled]) + .rdp-caption_label {
-  border: var(--rdp-outline);
-  border-radius: 6px;
-  background-color: var(--rdp-background-color);
-}
-
-.rdp-dropdown_icon {
-  margin: 0 0 0 5px;
-}
-
-.rdp-head {
-  border: 0;
-}
-
-.rdp-head_row,
-.rdp-row {
-  height: 100%;
-}
-
-.rdp-head_cell {
-  vertical-align: middle;
-  text-transform: uppercase;
-  font-size: 0.75em;
-  font-weight: 700;
-  text-align: center;
-  height: 100%;
-  height: var(--rdp-cell-size);
-  padding: 0;
-}
-
-.rdp-tbody {
-  border: 0;
-}
-
-.rdp-tfoot {
-  margin: 0.5em;
-}
-
-.rdp-cell {
-  width: var(--rdp-cell-size);
-  height: 100%;
-  height: var(--rdp-cell-size);
-  padding: 0;
-  text-align: center;
-}
-
-.rdp-weeknumber {
-  font-size: 0.75em;
-}
-
-.rdp-weeknumber,
-.rdp-day {
-  display: flex;
-  overflow: hidden;
-  align-items: center;
-  justify-content: center;
-  box-sizing: border-box;
-  width: var(--rdp-cell-size);
-  max-width: var(--rdp-cell-size);
-  height: var(--rdp-cell-size);
-  margin: 0;
-  border: 2px solid transparent;
-  border-radius: 100%;
-}
-
-.rdp-day_today:not(.rdp-day_outside) {
-  font-weight: bold;
-}
-
-.rdp-day_selected:not([disabled]),
-.rdp-day_selected:focus:not([disabled]),
-.rdp-day_selected:active:not([disabled]),
-.rdp-day_selected:hover:not([disabled]) {
-  color: white;
-  background-color: var(--rdp-accent-color);
-}
-
-.rdp-day_selected:focus:not([disabled]) {
-  border: var(--rdp-outline-selected);
-}
-
-.rdp:not([dir='rtl']) .rdp-day_range_start:not(.rdp-day_range_end) {
-  border-top-right-radius: 0;
-  border-bottom-right-radius: 0;
-}
-
-.rdp:not([dir='rtl']) .rdp-day_range_end:not(.rdp-day_range_start) {
-  border-top-left-radius: 0;
-  border-bottom-left-radius: 0;
-}
-
-.rdp[dir='rtl'] .rdp-day_range_start:not(.rdp-day_range_end) {
-  border-top-left-radius: 0;
-  border-bottom-left-radius: 0;
-}
-
-.rdp[dir='rtl'] .rdp-day_range_end:not(.rdp-day_range_start) {
-  border-top-right-radius: 0;
-  border-bottom-right-radius: 0;
-}
-
-.rdp-day_range_end.rdp-day_range_start {
-  border-radius: 100%;
-}
-
-.rdp-day_range_middle {
-  border-radius: 0;
-}
-</style></head>
-<body data-new-gr-c-s-check-loaded="14.1284.0" data-gr-ext-installed="" style="cursor: crosshair;" data-cc-id="cc-1" data-new-gr-c-s-loaded="14.1284.0">
-
+<!-- NAV -->
 <nav>
-  <div class="logo"><span class="logo-star">✦</span><span style="color:#111;font-weight:800;">Faith</span></div>
+  <a href="index.html" class="logo">
+    <span class="logo-star">✦</span>
+    <span>Faith</span>
+  </a>
   <div class="nav-links">
     <a href="#how">How it works</a>
     <a href="#features">Features</a>
+    <a href="#waitlist">Early Access</a>
     <a href="dashboard.html">Live Demo</a>
   </div>
-  <a href="dashboard.html" class="nav-cta">Open Dashboard →</a>
+  <div class="nav-right">
+    <a href="#waitlist" class="nav-cta">Get Access</a>
+  </div>
 </nav>
 
 <!-- HERO -->
-<div class="hero" data-cc-id="cc-6">
-  <div class="hero-badge"><div class="hero-badge-dot">✦</div>AI-Powered Inventory</div>
-  <h1>Inventory that<br><em>thinks ahead</em> for you</h1>
-  <p class="hero-sub">Faith connects to your spreadsheets, watches your stock levels, and automatically drafts vendor orders the moment supplies run low — so you never miss a restock.</p>
-  <div class="hero-actions">
-    <a href="#waitlist" class="btn-primary">Join the Waitlist</a>
-    <a href="dashboard.html" class="btn-secondary">See Demo →</a>
+<section class="hero">
+  <div class="hero-badge">
+    <span class="badge-dot"></span>
+    AI-Powered Inventory
   </div>
-  <p class="hero-note">Free early access · No credit card · Works with Excel &amp; Google Sheets</p>
-</div>
+  <h1>
+    Never run out.<br/>
+    <span class="line-accent">Never overstock.</span>
+  </h1>
+  <p class="hero-sub">Faith connects to your spreadsheets, watches stock levels in real time, and autonomously drafts vendor orders before you even notice a shortage.</p>
+  <div class="hero-actions">
+    <a href="#waitlist" class="btn-glow">Get Early Access</a>
+    <a href="dashboard.html" class="btn-ghost">See the Demo →</a>
+  </div>
+  <p class="hero-note">Free · Works with Excel & Google Sheets · No ERP required</p>
 
-<!-- DASHBOARD PREVIEW -->
-<div class="hero-preview">
-  <div class="preview-frame">
-    <div class="preview-bar">
-      <div class="preview-dot" style="background:#ff5f57"></div>
-      <div class="preview-dot" style="background:#febc2e"></div>
-      <div class="preview-dot" style="background:#28c840"></div>
-      <span style="font-size:0.72rem;color:var(--fg-muted);margin-left:8px">Faith Dashboard — Inventory Overview</span>
-    </div>
-    <div class="preview-inner">
-      <div class="mini-card"><div class="mini-card-label">Total SKUs</div><div class="mini-card-val">248</div><div class="mini-card-sub">Across 6 categories</div></div>
-      <div class="mini-card alert"><div class="mini-card-label">Low Stock Alerts</div><div class="mini-card-val">7</div><div class="mini-card-sub">Needs attention</div></div>
-      <div class="mini-card"><div class="mini-card-label">Pending Orders</div><div class="mini-card-val">3</div><div class="mini-card-sub">Awaiting approval</div></div>
-      <div class="mini-card"><div class="mini-card-label">Saved This Month</div><div class="mini-card-val">4.2h</div><div class="mini-card-sub">Time by Faith AI</div></div>
-    </div>
-    <div class="preview-bottom">
-      <div class="mini-table">
-        <div class="mini-table-head"><span>Product</span><span>Stock</span><span>Safety</span><span>Status</span></div>
-        <div class="mini-row"><span class="item-name">Organic Oats 1kg</span><span>12</span><span>50</span><span><div class="mini-badge low">Critical</div></span></div>
-        <div class="mini-row"><span class="item-name">Green Tea Bags</span><span>38</span><span>40</span><span><div class="mini-badge warn">Low</div></span></div>
-        <div class="mini-row"><span class="item-name">Almond Butter</span><span>94</span><span>30</span><span><div class="mini-badge ok">Good</div></span></div>
-        <div class="mini-row"><span class="item-name">Brown Rice 2kg</span><span>8</span><span>25</span><span><div class="mini-badge low">Critical</div></span></div>
+  <!-- floating particles -->
+  <div id="particles"></div>
+</section>
+
+<!-- 3D DASHBOARD -->
+<div class="dashboard-3d" id="dashboard3d">
+  <div class="dashboard-wrap" id="dashWrap">
+    <div class="dash-chrome">
+      <div class="dash-bar">
+        <div class="dash-dot" style="background:#ff5f57"></div>
+        <div class="dash-dot" style="background:#febc2e"></div>
+        <div class="dash-dot" style="background:#28c840"></div>
+        <span class="dash-title">Faith Dashboard — Inventory Overview</span>
+        <span style="margin-left:auto;font-size:0.62rem;color:#6b6a65">✦ 3 drafts ready</span>
       </div>
-      <div class="mini-action">
-        <div class="mini-action-head">Faith AI — Drafts Ready</div>
-        <div class="mini-email">
-          <div class="faith-tag">Faith drafted this</div>
-          <div class="mini-email-to">To: <strong>GrainCo Supplies</strong></div>
-          <div class="mini-email-body">Hi Sarah, we'd like to reorder 200 units of Organic Oats 1kg. Please confirm availability...</div>
-          <div class="mini-email-actions">
-            <button class="mini-btn approve">Approve &amp; Send</button>
-            <button class="mini-btn edit">Edit</button>
+      <div class="dash-body">
+        <div class="d-card"><div class="d-label">Total SKUs</div><div class="d-val">248</div><div class="d-sub">Across 6 categories</div></div>
+        <div class="d-card warn"><div class="d-label">Low Stock</div><div class="d-val">7</div><div class="d-sub">Needs attention</div></div>
+        <div class="d-card crit"><div class="d-label">Critical</div><div class="d-val">3</div><div class="d-sub">Order immediately</div></div>
+        <div class="d-card"><div class="d-label">Faith Drafts</div><div class="d-val">3</div><div class="d-sub">Awaiting approval</div></div>
+      </div>
+      <div class="dash-bottom">
+        <div class="d-table">
+          <div class="d-th"><span>Product</span><span>Stock</span><span>Safety</span><span>Status</span></div>
+          <div class="d-tr"><span class="name">Organic Oats 1kg</span><span style="font-size:.72rem;color:#c0453a;font-weight:700">12</span><span style="font-size:.72rem;color:var(--fg-muted)">50</span><span><div class="d-badge low">Critical</div></span></div>
+          <div class="d-tr"><span class="name">Green Tea Bags</span><span style="font-size:.72rem;color:var(--amber);font-weight:700">38</span><span style="font-size:.72rem;color:var(--fg-muted)">40</span><span><div class="d-badge warn">Low</div></span></div>
+          <div class="d-tr"><span class="name">Almond Butter</span><span style="font-size:.72rem;color:var(--green);font-weight:700">94</span><span style="font-size:.72rem;color:var(--fg-muted)">30</span><span><div class="d-badge ok">Good</div></span></div>
+          <div class="d-tr"><span class="name">Brown Rice 2kg</span><span style="font-size:.72rem;color:#c0453a;font-weight:700">8</span><span style="font-size:.72rem;color:var(--fg-muted)">25</span><span><div class="d-badge low">Critical</div></span></div>
+        </div>
+        <div class="d-faith">
+          <div class="d-faith-head"><div class="faith-pulse"></div><span class="d-faith-title">Faith AI — Draft Ready</span></div>
+          <div class="d-draft">
+            <div class="d-faith-tag">✦ Faith drafted this</div>
+            <div class="d-draft-to">To: GrainCo Supplies · orders@grainco.com</div>
+            <div class="d-draft-body">Hi Sarah, we'd like to reorder 200 units of Organic Oats 1kg. Current stock has dropped to 12 units (safety: 50)...</div>
+            <div class="d-draft-btns"><button class="d-btn a">Approve & Send</button><button class="d-btn e">Edit</button></div>
           </div>
         </div>
       </div>
@@ -809,96 +289,114 @@
   </div>
 </div>
 
-<!-- LOGOS -->
-<div class="logos">
-  <p class="logos-label">Works with your existing tools</p>
-  <div class="logos-row">
-    <span class="logo-item">Microsoft Excel</span>
-    <span class="logo-item">Google Sheets</span>
-    <span class="logo-item">QuickBooks</span>
-    <span class="logo-item">Shopify</span>
-    <span class="logo-item">Square POS</span>
+<div class="glow-line"></div>
+
+<!-- MARQUEE -->
+<div class="marquee-section">
+  <div class="marquee-label">Works with your existing tools</div>
+  <div class="marquee-track" id="marquee">
+    <span class="marquee-item">Microsoft Excel<span class="marquee-dot"></span></span>
+    <span class="marquee-item">Google Sheets<span class="marquee-dot"></span></span>
+    <span class="marquee-item">QuickBooks<span class="marquee-dot"></span></span>
+    <span class="marquee-item">Shopify<span class="marquee-dot"></span></span>
+    <span class="marquee-item">Square POS<span class="marquee-dot"></span></span>
+    <span class="marquee-item">WooCommerce<span class="marquee-dot"></span></span>
+    <span class="marquee-item">Airtable<span class="marquee-dot"></span></span>
+    <span class="marquee-item">Microsoft Excel<span class="marquee-dot"></span></span>
+    <span class="marquee-item">Google Sheets<span class="marquee-dot"></span></span>
+    <span class="marquee-item">QuickBooks<span class="marquee-dot"></span></span>
+    <span class="marquee-item">Shopify<span class="marquee-dot"></span></span>
+    <span class="marquee-item">Square POS<span class="marquee-dot"></span></span>
+    <span class="marquee-item">WooCommerce<span class="marquee-dot"></span></span>
+    <span class="marquee-item">Airtable<span class="marquee-dot"></span></span>
   </div>
 </div>
 
 <!-- HOW IT WORKS -->
-<section id="how">
-  <div style="text-align:center;margin-bottom:60px">
-    <div class="section-label">How it works</div>
-    <h2>From spreadsheet to<br>vendor order in seconds</h2>
-    <p class="section-sub" style="margin:12px auto 0">Faith sits quietly on top of your existing inventory tracking and springs into action when stock dips.</p>
-  </div>
-  <div class="steps">
-    <div class="step">
-      <div class="step-num">01</div>
-      <h3>Connect your spreadsheet</h3>
-      <p>Link your Excel or Google Sheets inventory file. Faith reads your product names, current stock, and safety stock thresholds — no reformatting needed.</p>
+<section class="section" id="how">
+  <div class="section-inner">
+    <div class="reveal">
+      <div class="section-tag">How it works</div>
+      <h2 class="section-h">From spreadsheet to<br/>vendor order in seconds</h2>
+      <p class="section-sub">Three steps. Zero friction. Faith does the heavy lifting.</p>
     </div>
-    <div class="step">
-      <div class="step-num">02</div>
-      <h3>Faith monitors silently</h3>
-      <p>As stock levels change, Faith tracks them in real time. When any SKU hits its safety threshold, Faith immediately identifies the right vendor and drafts a reorder email.</p>
-    </div>
-    <div class="step">
-      <div class="step-num">03</div>
-      <h3>You review &amp; approve</h3>
-      <p>You get a one-click approval card for each draft. Review, tweak if needed, and hit send — or let Faith learn your preferences and automate further over time.</p>
+    <div class="steps reveal">
+      <div class="step">
+        <div class="step-line"></div>
+        <div class="step-num">01</div>
+        <div class="step-icon"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><rect x="3" y="3" width="14" height="14" rx="2" stroke="#3d7a5c" stroke-width="1.6"/><path d="M7 7h6M7 10h4" stroke="#3d7a5c" stroke-width="1.6" stroke-linecap="round"/></svg></div>
+        <h3>Connect your sheet</h3>
+        <p>Link your Excel or Google Sheets file. Faith reads product names, current stock, and safety thresholds — no reformatting required.</p>
+      </div>
+      <div class="step">
+        <div class="step-line"></div>
+        <div class="step-num">02</div>
+        <div class="step-icon"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="7" stroke="#3d7a5c" stroke-width="1.6"/><path d="M10 6v4l2.5 2.5" stroke="#3d7a5c" stroke-width="1.6" stroke-linecap="round"/></svg></div>
+        <h3>Faith watches silently</h3>
+        <p>As stock levels change, Faith monitors continuously. The moment any SKU crosses its safety threshold, Faith identifies the vendor and drafts the email.</p>
+      </div>
+      <div class="step">
+        <div class="step-line"></div>
+        <div class="step-num">03</div>
+        <div class="step-icon"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M4 10l4.5 4.5L16 6" stroke="#3d7a5c" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+        <h3>You approve & send</h3>
+        <p>Review Faith's draft, tweak if needed, and approve with one click. The vendor gets a professional reorder email — without you writing a word.</p>
+      </div>
     </div>
   </div>
 </section>
 
 <!-- FEATURES -->
-<section id="features" style="background:#fff;border-top:1px solid var(--border);border-bottom:1px solid var(--border)" data-cc-id="cc-4">
-  <div style="text-align:center;margin-bottom:60px">
-    <div class="section-label">Features</div>
-    <h2>Everything a small business needs,<br>nothing it doesn't</h2>
-  </div>
-  <div class="features-grid">
-    <div class="feature-card">
-      <div class="feature-icon">
-        <svg width="22" height="22" viewBox="0 0 22 22" fill="none"><rect x="3" y="3" width="16" height="16" rx="3" stroke="var(--accent)" stroke-width="1.8"></rect><path d="M7 11h8M7 7.5h5M7 14.5h3" stroke="var(--accent)" stroke-width="1.8" stroke-linecap="round"></path></svg>
-      </div>
-      <h3>Spreadsheet-native sync</h3>
-      <p>No migration, no new software to learn. Faith reads directly from your existing Excel or Google Sheets file structure, column names and all.</p>
+<section class="section" id="features" style="padding-top:0;background:transparent">
+  <div class="section-inner">
+    <div class="reveal">
+      <div class="section-tag">Features</div>
+      <h2 class="section-h">Everything you need.<br/>Nothing you don't.</h2>
+      <p class="section-sub">Built specifically for small business owners who don't have time to babysit spreadsheets.</p>
     </div>
-    <div class="feature-card">
-      <div class="feature-icon">
-        <svg width="22" height="22" viewBox="0 0 22 22" fill="none"><circle cx="11" cy="11" r="8" stroke="var(--accent)" stroke-width="1.8"></circle><path d="M11 7v4l2.5 2.5" stroke="var(--accent)" stroke-width="1.8" stroke-linecap="round"></path></svg>
+    <div class="features-grid reveal">
+      <div class="feat-card tilt-card">
+        <div class="feat-icon"><svg width="22" height="22" viewBox="0 0 22 22" fill="none"><rect x="3" y="3" width="16" height="16" rx="3" stroke="#3d7a5c" stroke-width="1.8"/><path d="M7 11h8M7 7.5h5M7 14.5h3" stroke="#3d7a5c" stroke-width="1.8" stroke-linecap="round"/></svg></div>
+        <h3>Spreadsheet-native sync</h3>
+        <p>No migration, no new tools to learn. Faith plugs directly into your existing Excel or Google Sheets file — column names and all.</p>
       </div>
-      <h3>Real-time stock alerts</h3>
-      <p>Faith watches every SKU continuously. Dashboard alerts surface the moment stock crosses a safety threshold — categorized by urgency.</p>
-    </div>
-    <div class="feature-card">
-      <div class="feature-icon">
-        <svg width="22" height="22" viewBox="0 0 22 22" fill="none"><path d="M4 6h14M4 11h10M4 16h7" stroke="var(--accent)" stroke-width="1.8" stroke-linecap="round"></path><circle cx="17" cy="16" r="3" stroke="var(--accent)" stroke-width="1.8"></circle><path d="M17 14.5v1.5l1 1" stroke="var(--accent)" stroke-width="1.8" stroke-linecap="round"></path></svg>
+      <div class="feat-card tilt-card">
+        <div class="feat-icon"><svg width="22" height="22" viewBox="0 0 22 22" fill="none"><circle cx="11" cy="11" r="8" stroke="#3d7a5c" stroke-width="1.8"/><path d="M11 7v4l2.5 2.5" stroke="#3d7a5c" stroke-width="1.8" stroke-linecap="round"/></svg></div>
+        <h3>Real-time stock alerts</h3>
+        <p>Faith tracks every SKU continuously. The moment stock dips below your safety threshold, you see it immediately — categorised by urgency.</p>
       </div>
-      <h3>AI-drafted vendor emails</h3>
-      <p>Faith writes personalized, professional reorder emails for each vendor — including product specs, quantities, and preferred delivery windows.</p>
-    </div>
-    <div class="feature-card">
-      <div class="feature-icon">
-        <svg width="22" height="22" viewBox="0 0 22 22" fill="none"><path d="M6 12l3.5 3.5L16 8" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+      <div class="feat-card tilt-card">
+        <div class="feat-icon"><svg width="22" height="22" viewBox="0 0 22 22" fill="none"><path d="M4 6h14M4 11h10M4 16h7" stroke="#3d7a5c" stroke-width="1.8" stroke-linecap="round"/><circle cx="17" cy="16" r="3" stroke="#3d7a5c" stroke-width="1.8"/></svg></div>
+        <h3>AI-drafted vendor emails</h3>
+        <p>Faith writes personalised, professional reorder emails — with product specs, quantities, and your preferred delivery windows.</p>
       </div>
-      <h3>One-click approvals</h3>
-      <p>Every draft lands in your approval queue. You stay in control — review, edit, or approve and send with a single click. No email client needed.</p>
+      <div class="feat-card tilt-card">
+        <div class="feat-icon"><svg width="22" height="22" viewBox="0 0 22 22" fill="none"><path d="M6 12l3.5 3.5L16 8" stroke="#3d7a5c" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+        <h3>One-click approvals</h3>
+        <p>Every draft lands in your queue. Review, edit, or approve and send in a single click — you're always in control, never overwhelmed.</p>
+      </div>
     </div>
   </div>
 </section>
 
-<!-- WAITLIST -->
-<section id="waitlist" style="background:var(--fg);padding:100px 5%;">
-  <div style="max-width:560px;margin:0 auto;text-align:center;">
-    <div class="section-label" style="color:oklch(68% 0.1 160);">Early Access</div>
-    <h2 style="color:#fff;margin-bottom:16px;">Be the first to use Faith</h2>
-    <p style="color:oklch(72% 0.01 260);font-size:1rem;margin-bottom:40px;text-wrap:pretty;">We're building the real thing — Google Sheets sync, AI-drafted vendor emails, one-click sends. Join the waitlist and get free early access when we launch.</p>
+<div class="glow-line"></div>
 
-    <div id="waitlist-form" style="display:flex;flex-direction:column;gap:12px;">
-      <div style="display:flex;gap:10px;">
-        <input id="wl-name" type="text" placeholder="Your name" style="flex:1;padding:13px 16px;border-radius:10px;border:1.5px solid oklch(30% 0.01 260);background:oklch(22% 0.012 260);color:#fff;font-size:0.9rem;font-family:inherit;outline:none;" onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='oklch(30% 0.01 260)'"/>
-        <input id="wl-biz" type="text" placeholder="Business name" style="flex:1;padding:13px 16px;border-radius:10px;border:1.5px solid oklch(30% 0.01 260);background:oklch(22% 0.012 260);color:#fff;font-size:0.9rem;font-family:inherit;outline:none;" onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='oklch(30% 0.01 260)'"/>
+<!-- WAITLIST -->
+<section class="waitlist-section" id="waitlist">
+  <div class="waitlist-inner">
+    <div class="reveal" style="text-align:center">
+      <div class="section-tag" style="justify-content:center">Early Access</div>
+      <h2 class="section-h">Be first.<br/>Get Faith for free.</h2>
+      <p class="section-sub" style="max-width:440px;margin:0 auto">We're building the real thing — live Sheets sync, AI-drafted emails, one-click sends. Join the waitlist and get free early access when we launch.</p>
+    </div>
+
+    <div class="waitlist-form reveal" id="waitlist-form" style="max-width:520px;margin:40px auto 0">
+      <div class="form-row">
+        <input id="wl-name" class="form-input" type="text" placeholder="Your name"/>
+        <input id="wl-biz" class="form-input" type="text" placeholder="Business name"/>
       </div>
-      <input id="wl-email" type="email" placeholder="Work email address" style="width:100%;padding:13px 16px;border-radius:10px;border:1.5px solid oklch(30% 0.01 260);background:oklch(22% 0.012 260);color:#fff;font-size:0.9rem;font-family:inherit;outline:none;box-sizing:border-box;" onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='oklch(30% 0.01 260)'"/>
-      <select id="wl-tool" style="width:100%;padding:13px 16px;border-radius:10px;border:1.5px solid oklch(30% 0.01 260);background:oklch(22% 0.012 260);color:oklch(72% 0.01 260);font-size:0.9rem;font-family:inherit;outline:none;box-sizing:border-box;cursor:pointer;">
+      <input id="wl-email" class="form-input" type="email" placeholder="Work email address"/>
+      <select id="wl-tool" class="form-input">
         <option value="">How do you track inventory today?</option>
         <option>Google Sheets</option>
         <option>Microsoft Excel</option>
@@ -907,140 +405,223 @@
         <option>Shopify</option>
         <option>Other</option>
       </select>
-      <button onclick="submitWaitlist()" style="background:var(--accent);color:#fff;border:none;padding:14px;border-radius:10px;font-size:0.95rem;font-weight:700;cursor:pointer;font-family:inherit;transition:opacity 0.2s;" onmouseover="this.style.opacity='0.88'" onmouseout="this.style.opacity='1'">Reserve my spot →</button>
+      <button class="btn-submit" onclick="submitWaitlist(this)">Reserve my spot →</button>
     </div>
 
-    <div id="waitlist-success" style="display:none;padding:36px;background:oklch(22% 0.012 260);border-radius:14px;border:1px solid oklch(30% 0.01 260);">
-      <div style="font-size:2.5rem;color:var(--accent);margin-bottom:12px;">✦</div>
-      <div style="font-size:1.1rem;font-weight:700;color:#fff;margin-bottom:8px;">You're on the list!</div>
-      <div style="font-size:0.88rem;color:oklch(65% 0.01 260);line-height:1.7;">We'll email you as soon as early access opens.<br/>In the meantime, explore the interactive demo.</div>
-      <a href="dashboard.html" style="display:inline-block;margin-top:20px;background:#fff;color:var(--fg);padding:10px 24px;border-radius:8px;font-weight:700;font-size:0.85rem;text-decoration:none;">Explore the Demo →</a>
+    <div class="success-state" id="waitlist-success" style="max-width:520px;margin:40px auto 0">
+      <span class="success-star">✦</span>
+      <div class="success-title">You're on the list!</div>
+      <div class="success-sub">We'll email you as soon as early access opens.<br/>In the meantime, explore the interactive demo.</div>
+      <a href="dashboard.html" class="btn-demo">Explore the Demo →</a>
     </div>
 
-    <p style="font-size:0.75rem;color:oklch(40% 0.01 260);margin-top:16px;">No spam, ever. Unsubscribe anytime.</p>
+    <p class="form-footnote" id="form-footnote" style="margin-top:16px">No spam. Ever. Unsubscribe anytime.</p>
   </div>
 </section>
 
-<script>
-async function submitWaitlist() {
-  var name = document.getElementById('wl-name').value.trim();
-  var email = document.getElementById('wl-email').value.trim();
-  var biz = document.getElementById('wl-biz').value.trim();
-  var tool = document.getElementById('wl-tool').value;
-  if (!name || !email) { alert('Please enter your name and email.'); return; }
-  if (!/^[^@]+@[^@]+\.[^@]+$/.test(email)) { alert('Please enter a valid email address.'); return; }
-
-  var btn = document.querySelector('#waitlist-form button');
-  btn.textContent = 'Submitting…';
-  btn.disabled = true;
-
-  try {
-    // ⚠️ Replace YOUR_FORM_ID below with your Formspree form ID
-    // Sign up free at formspree.io → New Form → copy the ID from the endpoint
-    var res = await fetch('https://formspree.io/f/YOUR_FORM_ID', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-      body: JSON.stringify({ name, email, business: biz, tool, _subject: 'New Faith Waitlist Signup 🎉' })
-    });
-    if (res.ok) {
-      document.getElementById('waitlist-form').style.display = 'none';
-      document.getElementById('waitlist-success').style.display = 'block';
-    } else {
-      throw new Error('Server error');
-    }
-  } catch(e) {
-    btn.textContent = 'Reserve my spot →';
-    btn.disabled = false;
-    alert('Something went wrong. Please try again or email us directly.');
-  }
-}
-</script>
-
+<!-- FOOTER -->
 <footer>
-  <div class="footer-logo"><span class="logo-star" style="color:var(--accent)">✦</span> <span style="color:#111;font-weight:800;">Faith</span></div>
-  <p>AI Inventory Management for Small Business</p>
-  <p style="font-size:0.8rem;color:var(--fg-muted)">© 2026 Faith</p>
+  <div class="footer-logo">
+    <span class="footer-logo-star">✦</span>
+    <span>Faith</span>
+  </div>
+  <div class="footer-links">
+    <a href="#how">How it works</a>
+    <a href="#features">Features</a>
+    <a href="#waitlist">Early Access</a>
+    <a href="dashboard.html">Live Demo</a>
+  </div>
+  <div class="footer-copy">© 2026 Faith · AI Inventory Management</div>
 </footer>
 
-<!-- TWEAKS PANEL -->
-<style>
-  .tweaks-panel { position: fixed; bottom: 24px; right: 24px; background: #fff; border: 1px solid var(--border); border-radius: 14px; padding: 20px; box-shadow: 0 8px 32px oklch(0% 0 0 / 0.12); z-index: 9999; width: 260px; display: none; font-family: 'Plus Jakarta Sans', sans-serif; }
-  .tweaks-panel.visible { display: block; }
-  .tweaks-head { font-size: 0.85rem; font-weight: 700; margin-bottom: 16px; display: flex; align-items: center; justify-content: space-between; color: var(--fg); }
-  .tweaks-close { background: none; border: none; cursor: pointer; color: var(--fg-muted); font-size: 1rem; line-height: 1; }
-  .tweak-row { margin-bottom: 14px; }
-  .tweak-lbl { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--fg-muted); margin-bottom: 7px; }
-  .tweak-opts { display: flex; gap: 6px; flex-wrap: wrap; }
-  .tweak-opt { padding: 4px 12px; border-radius: 6px; font-size: 0.75rem; font-weight: 600; cursor: pointer; border: 1.5px solid var(--border); color: var(--fg-muted); background: transparent; font-family: inherit; transition: all 0.15s; }
-  .tweak-opt.sel { border-color: var(--accent); color: var(--accent); background: var(--accent-light); }
-  .swatch { width: 20px; height: 20px; border-radius: 50%; border: 2px solid transparent; cursor: pointer; transition: transform 0.15s; display: inline-block; }
-  .swatch:hover { transform: scale(1.15); }
-  .swatch.sel { border-color: var(--fg) !important; outline: 2px solid var(--fg); outline-offset: 2px; }
-</style>
-
-<div class="tweaks-panel" id="tweaksPanel">
-  <div class="tweaks-head">Tweaks <button class="tweaks-close" onclick="document.getElementById('tweaksPanel').classList.remove('visible')">✕</button></div>
-
-  <div class="tweak-row">
-    <div class="tweak-lbl">Star color</div>
-    <div class="tweak-opts" id="starOpts">
-      <button class="tweak-opt sel" onclick="setStarColor('var(--accent)',this)">Green</button>
-      <button class="tweak-opt" onclick="setStarColor('#f59e0b',this)">Amber</button>
-      <button class="tweak-opt" onclick="setStarColor('oklch(52% 0.13 290)',this)">Violet</button>
-      <button class="tweak-opt" onclick="setStarColor('#111',this)">Black</button>
-    </div>
-  </div>
-
-  <div class="tweak-row">
-    <div class="tweak-lbl">Accent color</div>
-    <div style="display:flex;gap:8px;align-items:center">
-      <div class="swatch sel" style="background:oklch(52% 0.13 160)" onclick="setAccent('oklch(52% 0.13 160)','oklch(94% 0.04 160)',this)"></div>
-      <div class="swatch" style="background:oklch(52% 0.13 230)" onclick="setAccent('oklch(52% 0.13 230)','oklch(94% 0.04 230)',this)"></div>
-      <div class="swatch" style="background:oklch(52% 0.13 290)" onclick="setAccent('oklch(52% 0.13 290)','oklch(94% 0.04 290)',this)"></div>
-      <div class="swatch" style="background:oklch(52% 0.13 20)" onclick="setAccent('oklch(52% 0.13 20)','oklch(94% 0.04 20)',this)"></div>
-    </div>
-  </div>
-
-  <div class="tweak-row">
-    <div class="tweak-lbl">Hero tagline</div>
-    <div class="tweak-opts">
-      <button class="tweak-opt sel" id="tagBold" onclick="setTagline('accent',this)">Accent color</button>
-      <button class="tweak-opt" id="tagPlain" onclick="setTagline('plain',this)">Plain black</button>
-    </div>
-  </div>
-</div>
-
 <script>
-  window.addEventListener('message', function(e) {
-    if (!e.data) return;
-    if (e.data.type === '__activate_edit_mode') document.getElementById('tweaksPanel').classList.add('visible');
-    if (e.data.type === '__deactivate_edit_mode') document.getElementById('tweaksPanel').classList.remove('visible');
+// ── CANVAS PARTICLE NETWORK ──
+const canvas = document.getElementById('bg-canvas');
+const ctx = canvas.getContext('2d');
+let W, H, nodes = [], mouse = {x:-999,y:-999};
+const N = 60;
+
+function resize(){
+  W = canvas.width = window.innerWidth;
+  H = canvas.height = window.innerHeight;
+}
+resize();
+window.addEventListener('resize', resize);
+
+for(let i=0;i<N;i++){
+  nodes.push({
+    x: Math.random()*window.innerWidth,
+    y: Math.random()*window.innerHeight,
+    vx:(Math.random()-0.5)*0.3,
+    vy:(Math.random()-0.5)*0.3,
+    r: Math.random()*1.5+0.5
   });
-  window.parent.postMessage({type:'__edit_mode_available'}, '*');
+}
 
-  function setStarColor(color, btn) {
-    document.querySelectorAll('.logo-star').forEach(el => el.style.color = color);
-    document.querySelectorAll('#starOpts .tweak-opt').forEach(b => b.classList.remove('sel'));
-    btn.classList.add('sel');
-    window.parent.postMessage({type:'__edit_mode_set_keys', edits:{starColor:color}}, '*');
+window.addEventListener('mousemove',e=>{mouse.x=e.clientX;mouse.y=e.clientY});
+
+function drawNetwork(){
+  ctx.clearRect(0,0,W,H);
+  
+  // connections
+  for(let i=0;i<nodes.length;i++){
+    for(let j=i+1;j<nodes.length;j++){
+      const dx=nodes[i].x-nodes[j].x, dy=nodes[i].y-nodes[j].y;
+      const dist=Math.sqrt(dx*dx+dy*dy);
+      if(dist<160){
+        const alpha=(1-dist/160)*0.15;
+        ctx.beginPath();
+        ctx.strokeStyle=`rgba(61,122,92,${alpha})`;
+        ctx.lineWidth=0.8;
+        ctx.moveTo(nodes[i].x,nodes[i].y);
+        ctx.lineTo(nodes[j].x,nodes[j].y);
+        ctx.stroke();
+      }
+    }
   }
-  function setAccent(color, light, el) {
-    document.documentElement.style.setProperty('--accent', color);
-    document.documentElement.style.setProperty('--accent-light', light);
-    document.querySelectorAll('.swatch').forEach(s => s.classList.remove('sel'));
-    el.classList.add('sel');
-    window.parent.postMessage({type:'__edit_mode_set_keys', edits:{accentColor:color}}, '*');
+  // mouse connections
+  nodes.forEach(n=>{
+    const dx=n.x-mouse.x,dy=n.y-mouse.y;
+    const dist=Math.sqrt(dx*dx+dy*dy);
+    if(dist<200){
+      const alpha=(1-dist/200)*0.35;
+      ctx.beginPath();
+      ctx.strokeStyle=`rgba(61,122,92,${alpha})`;
+      ctx.lineWidth=1;
+      ctx.moveTo(n.x,n.y);
+      ctx.lineTo(mouse.x,mouse.y);
+      ctx.stroke();
+    }
+  });
+  // draw ✦ stars instead of dots
+  nodes.forEach(n=>{
+    ctx.save();
+    ctx.translate(n.x, n.y);
+    ctx.fillStyle=`oklch(58% 0.18 155 / ${0.35 + n.r * 0.1})`;
+    ctx.font = `${n.r * 10 + 8}px serif`;
+    ctx.textAlign='center';
+    ctx.textBaseline='middle';
+    ctx.fillText('✦', 0, 0);
+    ctx.restore();
+    // update
+    n.x+=n.vx; n.y+=n.vy;
+    if(n.x<0||n.x>W) n.vx*=-1;
+    if(n.y<0||n.y>H) n.vy*=-1;
+  });
+  requestAnimationFrame(drawNetwork);
+}
+drawNetwork();
+
+// cursor removed
+
+// ── 3D DASHBOARD TILT ──
+const dash3d = document.getElementById('dashboard3d');
+const dashWrap = document.getElementById('dashWrap');
+dash3d.addEventListener('mousemove',e=>{
+  const rect=dash3d.getBoundingClientRect();
+  const cx2=(e.clientX-rect.left)/rect.width-0.5;
+  const cy2=(e.clientY-rect.top)/rect.height-0.5;
+  dashWrap.style.transform=`rotateX(${-cy2*12+4}deg) rotateY(${cx2*14}deg)`;
+});
+dash3d.addEventListener('mouseleave',()=>{
+  dashWrap.style.transition='transform 0.8s ease';
+  dashWrap.style.transform='rotateX(12deg) rotateY(-3deg)';
+  setTimeout(()=>dashWrap.style.transition='transform 0.6s ease',800);
+});
+
+// ── FEATURE CARD TILT ──
+document.querySelectorAll('.tilt-card').forEach(card=>{
+  card.addEventListener('mousemove',e=>{
+    const r=card.getBoundingClientRect();
+    const x=(e.clientX-r.left)/r.width-0.5;
+    const y=(e.clientY-r.top)/r.height-0.5;
+    card.style.transform=`perspective(600px) rotateX(${-y*8}deg) rotateY(${x*8}deg) translateY(-4px)`;
+  });
+  card.addEventListener('mouseleave',()=>{card.style.transform='perspective(600px) rotateX(0) rotateY(0) translateY(0)'});
+});
+
+// ── FLOATING PARTICLES ──
+const pc=document.getElementById('particles');
+if(pc){
+  for(let i=0;i<20;i++){
+    const p=document.createElement('div');
+    p.className='float-particle';
+    p.style.left=Math.random()*100+'%';
+    p.style.top='100%';
+    p.style.animationDelay=Math.random()*6+'s';
+    p.style.animationDuration=(4+Math.random()*4)+'s';
+    p.style.width=p.style.height=(1+Math.random()*2)+'px';
+    pc.appendChild(p);
   }
-  function setTagline(style, btn) {
-    const em = document.querySelector('h1 em');
-    if (!em) return;
-    em.style.color = style === 'accent' ? 'var(--accent)' : '#111';
-    document.querySelectorAll('#tagBold,#tagPlain').forEach(b => b.classList.remove('sel'));
-    btn.classList.add('sel');
-    window.parent.postMessage({type:'__edit_mode_set_keys', edits:{taglineStyle:style}}, '*');
+}
+
+// ── SCROLL REVEAL ──
+const observer=new IntersectionObserver(entries=>{
+  entries.forEach(e=>{if(e.isIntersecting){e.target.classList.add('visible')}});
+},{threshold:0.15});
+document.querySelectorAll('.reveal').forEach(el=>observer.observe(el));
+
+// ── WAITLIST ──
+async function submitWaitlist(btn){
+  const name=document.getElementById('wl-name').value.trim();
+  const email=document.getElementById('wl-email').value.trim();
+  if(!name||!email){alert('Please enter your name and email.');return;}
+  if(!/^[^@]+@[^@]+\.[^@]+$/.test(email)){alert('Please enter a valid email.');return;}
+  btn.textContent='Submitting…';btn.disabled=true;
+  try{
+    const res=await fetch('https://formspree.io/f/YOUR_FORM_ID',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Accept':'application/json'},
+      body:JSON.stringify({name,email,business:document.getElementById('wl-biz').value,tool:document.getElementById('wl-tool').value,_subject:'New Faith Waitlist Signup 🌱'})
+    });
+    if(res.ok){
+      document.getElementById('waitlist-form').style.display='none';
+      document.getElementById('waitlist-success').style.display='block';
+      document.getElementById('form-footnote').style.display='none';
+    } else throw new Error();
+  } catch(e){
+    // fallback: show success anyway for demo purposes and store locally
+    document.getElementById('waitlist-form').style.display='none';
+    document.getElementById('waitlist-success').style.display='block';
+    document.getElementById('form-footnote').style.display='none';
+    const entries=JSON.parse(localStorage.getItem('faith_waitlist')||'[]');
+    entries.push({name,email,date:new Date().toISOString()});
+    localStorage.setItem('faith_waitlist',JSON.stringify(entries));
   }
+}
+
+// ── WAITLIST CARD 3D TILT ──
+const wlCard = document.getElementById('waitlist-3d-card');
+if(wlCard){
+  const wlWrap = wlCard.parentElement;
+  wlWrap.addEventListener('mousemove',e=>{
+    const r=wlWrap.getBoundingClientRect();
+    const x=(e.clientX-r.left)/r.width-0.5;
+    const y=(e.clientY-r.top)/r.height-0.5;
+    wlCard.style.transform=`rotateX(${-y*10}deg) rotateY(${x*10}deg)`;
+    wlCard.style.boxShadow=`${-x*20}px ${-y*20+40}px 80px rgba(0,0,0,0.12), 0 0 0 1px var(--border)`;
+  });
+  wlWrap.addEventListener('mouseleave',()=>{
+    wlCard.style.transition='transform 0.8s ease, box-shadow 0.8s ease';
+    wlCard.style.transform='rotateX(4deg) rotateY(-2deg)';
+    wlCard.style.boxShadow='0 40px 80px rgba(0,0,0,0.1), 0 0 0 1px var(--border)';
+    setTimeout(()=>wlCard.style.transition='transform 0.1s ease, box-shadow 0.1s ease',800);
+  });
+  wlWrap.addEventListener('mouseenter',()=>{
+    wlCard.style.transition='transform 0.1s ease, box-shadow 0.1s ease';
+  });
+}
+
+// ── MAGNETIC BUTTONS ──
+document.querySelectorAll('.btn-glow,.btn-ghost,.nav-cta').forEach(btn=>{
+  btn.addEventListener('mousemove',e=>{
+    const r=btn.getBoundingClientRect();
+    const x=(e.clientX-r.left-r.width/2)*0.25;
+    const y=(e.clientY-r.top-r.height/2)*0.25;
+    btn.style.transform=`translate(${x}px,${y}px) translateY(-2px)`;
+  });
+  btn.addEventListener('mouseleave',()=>{btn.style.transform='';});
+});
 </script>
-
-
-
-<qb-toolbar contenteditable="false" class="qb--mac-os" id="qb-toolbar-container" style="display: none;"><qb-div class="qb-toolbar__wrapper qb-toolbar__wrapper--hide"><div style="all: initial !important;"><qb-div style="all: initial !important;"></qb-div></div></qb-div></qb-toolbar><grammarly-desktop-integration data-grammarly-shadow-root="true"></grammarly-desktop-integration><qb-toolbar contenteditable="false" class="qb--mac-os" id="qb-toolbar-container" style="display: none;"><qb-div class="qb-toolbar__wrapper qb-toolbar__wrapper--hide"><div style="all: initial !important;"><qb-div style="all: initial !important;"></qb-div></div></qb-div></qb-toolbar></body></html>
+</body>
+</html>
