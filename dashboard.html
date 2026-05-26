@@ -175,27 +175,106 @@ const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
 // Each user pastes their own Apps Script URL on first run.
 // Stored in localStorage — in a real SaaS this would be in your user database.
 
+// Smart fuzzy column matcher — tries many synonyms per field
+// Patterns within each list are listed in PRIORITY ORDER (most specific first).
+// The global resolver below ensures each sheet column maps to AT MOST ONE Faith field,
+// and ties are broken by which field's pattern appears earlier in the list.
+const COLUMN_ALIASES = {
+  name:        [/^product$/, /^product[\s_]*name$/, /^item[\s_]*name$/, /^material[\s_]*name$/, /^name$/, /^item$/, /^material$/, /^title$/, /^description$/, /^description[\s_]*of[\s_]*goods/, /^stock[\s_]*item/, /^goods/],
+  sku:         [/^sku$/, /^item[\s_]*code$/, /^product[\s_]*code$/, /^material[\s_]*code$/, /^part[\s_]*no\.?$/, /^part[\s_]*number$/, /^item[\s_]*id$/, /^product[\s_]*id$/, /^code$/, /^id$/, /^reference$/, /^ref$/],
+  category:    [/^category$/, /^type$/, /^group$/, /^class$/, /^classification$/, /^segment$/, /^family$/, /^department$/, /^dept\.?$/],
+  stock:       [/^stock$/, /^current[\s_]*stock$/, /^qty[\s_]*at[\s_]*hand$/, /^qty[\s_]*in[\s_]*hand$/, /^on[\s_]*hand$/, /^stock[\s_]*on[\s_]*hand$/, /^in[\s_]*stock$/, /^available[\s_]*stock$/, /^qty$/, /^quantity$/, /^available$/, /^balance$/, /^inventory$/, /^count$/, /^units$/],
+  safety:      [/^safety[\s_]*stock$/, /^safety$/, /^reorder[\s_]*point$/, /^reorder[\s_]*level$/, /^minimum[\s_]*stock$/, /^minimum[\s_]*level$/, /^min[\s_]*stock$/, /^par[\s_]*level$/, /^low[\s_]*stock[\s_]*alert$/, /^threshold$/, /^min(imum)?$/],
+  vendor:      [/^vendor[\s_]*name$/, /^supplier[\s_]*name$/, /^vendor$/, /^supplier$/, /^seller$/, /^manufacturer$/, /^source$/, /^provider$/, /^brand$/, /^company$/],
+  vendorEmail: [/^vendor[\s_]*email$/, /^supplier[\s_]*email$/, /^contact[\s_]*email$/, /^email$/, /^e[\s_]*mail$/, /^email[\s_]*address$/],
+  unitCost:    [/^unit[\s_]*cost$/, /^cost[\s_]*per[\s_]*unit$/, /^purchase[\s_]*price$/, /^buy[\s_]*price$/, /^unit[\s_]*price$/, /^cost$/, /^price$/, /^rate$/, /^mrp$/, /^value$/],
+  reorderQty:  [/^reorder[\s_]*qty$/, /^reorder[\s_]*quantity$/, /^reorder[\s_]*amount$/, /^restock[\s_]*qty$/, /^order[\s_]*qty$/, /^order[\s_]*quantity$/, /^reorder$/],
+};
+
+const FIELD_ORDER = ['name','sku','category','stock','safety','vendor','vendorEmail','unitCost','reorderQty'];
+
+// GLOBAL RESOLVER:
+// Build a [field, pattern, priority] table for all aliases, then for each sheet column find the
+// HIGHEST-priority (field, pattern) it matches. This guarantees one column → one field, and
+// patterns/fields listed earlier win conflicts.
+function buildColumnMapping(rowKeys) {
+  const scored = []; // { col, field, patternIndex, fieldIndex }
+  rowKeys.forEach(col => {
+    const k = String(col).toLowerCase().trim();
+    for (let fi = 0; fi < FIELD_ORDER.length; fi++) {
+      const field = FIELD_ORDER[fi];
+      const patterns = COLUMN_ALIASES[field];
+      for (let pi = 0; pi < patterns.length; pi++) {
+        if (patterns[pi].test(k)) {
+          scored.push({ col, field, patternIndex: pi, fieldIndex: fi });
+          break; // only the best pattern within a field
+        }
+      }
+    }
+  });
+  // Sort by: lowest patternIndex (most specific) first, then lowest fieldIndex
+  scored.sort((a, b) => a.patternIndex - b.patternIndex || a.fieldIndex - b.fieldIndex);
+  // Assign each field to at most one column, each column to at most one field
+  const fieldToCol = {};   // field → column key
+  const usedCols = new Set();
+  scored.forEach(({ col, field }) => {
+    if (fieldToCol[field] !== undefined) return; // field already claimed
+    if (usedCols.has(col)) return;                // column already claimed
+    fieldToCol[field] = col;
+    usedCols.add(col);
+  });
+  return { fieldToCol, usedCols };
+}
+
 function normalizeRow(r, idx) {
-  // Build the standard product shape from common column names
+  const num = (v) => {
+    if (v === null || v === undefined || v === '') return null;
+    const cleaned = String(v).replace(/[^0-9.\-]/g, '');
+    const n = Number(cleaned);
+    return isNaN(n) ? null : n;
+  };
+
+  const { fieldToCol, usedCols } = buildColumnMapping(Object.keys(r));
+  const get = (field) => {
+    const col = fieldToCol[field];
+    if (!col) return null;
+    const v = r[col];
+    return (v === undefined || v === null || String(v).trim() === '') ? null : v;
+  };
+
   const std = {
     id: idx + 1,
-    name: r.product || r.name || r.product_name || r.item || r.item_name || '',
-    sku: r.sku || r.code || '',
-    category: r.category || '',
-    stock: r.stock !== undefined && r.stock !== '' ? Number(r.stock) : (r.current_stock !== undefined ? Number(r.current_stock) : null),
-    safety: r.safety !== undefined && r.safety !== '' ? Number(r.safety) : (r.safety_stock !== undefined ? Number(r.safety_stock) : null),
-    vendor: r.vendor || r.vendor_name || r.supplier || '',
-    vendorEmail: r.vendor_email || r.email || r.supplier_email || '',
-    unitCost: r.unit_cost !== undefined && r.unit_cost !== '' ? Number(r.unit_cost) : (r.cost !== undefined ? Number(r.cost) : (r.price !== undefined ? Number(r.price) : null)),
-    reorderQty: r.reorder_qty !== undefined && r.reorder_qty !== '' ? Number(r.reorder_qty) : (r.reorder_quantity !== undefined ? Number(r.reorder_quantity) : null),
+    name: get('name') ? String(get('name')).trim() : '',
+    sku: get('sku') ? String(get('sku')).trim() : '',
+    category: get('category') ? String(get('category')).trim() : '',
+    stock: num(get('stock')),
+    safety: num(get('safety')),
+    vendor: get('vendor') ? String(get('vendor')).trim() : '',
+    vendorEmail: get('vendorEmail') ? String(get('vendorEmail')).trim() : '',
+    unitCost: num(get('unitCost')),
+    reorderQty: num(get('reorderQty')),
   };
-  // Keep ALL raw columns under .raw so dynamic columns can render anything
-  const knownKeys = new Set(['id','product','name','product_name','item','item_name','sku','code','category','stock','current_stock','safety','safety_stock','vendor','vendor_name','supplier','vendor_email','email','supplier_email','unit_cost','cost','price','reorder_qty','reorder_quantity']);
+
+  // Any column NOT used by a known field becomes an "extra" column (rendered dynamically)
   std.extra = {};
   Object.keys(r).forEach(k => {
-    if (!knownKeys.has(k) && k !== 'id') std.extra[k] = r[k];
+    if (!usedCols.has(k) && k !== 'id') {
+      const v = r[k];
+      if (v !== null && v !== undefined && String(v).trim() !== '') std.extra[k] = v;
+    }
   });
+
   return std;
+}
+
+// Skip empty rows — any row that has no name/sku and no meaningful data
+function isEmptyRow(item) {
+  if (item.name && item.name.trim()) return false;
+  if (item.sku && item.sku.trim()) return false;
+  if (item.stock !== null) return false;
+  // Has any extra column data?
+  if (item.extra && Object.values(item.extra).some(v => v !== null && v !== undefined && String(v).trim() !== '')) return false;
+  return true;
 }
 
 const initialInventory = [
@@ -241,7 +320,7 @@ function draftsFromInventory(inv) {
 //    All your customers use the same URL — no setup on their end.) ──
 const FAITH_API = 'https://faith-server.onrender.com'; // ← change to your Render URL after deploying server/
 
-async function generateDraftBody(draft, settings) {
+async function generateDraftBody(draft, settings, poNumber) {
   const { businessName, businessContact, businessAddress, poTemplate } = settings;
   const total = (draft.qty * draft.unitCost).toFixed(2);
 
@@ -258,7 +337,7 @@ ORDER DETAILS:
 - Vendor: ${draft.vendor}
 - Current stock: ${draft.stock} (below safety threshold of ${draft.safety})
 - Order date: ${new Date().toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'})}
-- PO number: PO-${Date.now().toString().slice(-6)}
+- PO number: ${poNumber || 'PO-' + Date.now().toString().slice(-6)}
 
 BUYER INFO:
 - Business: ${businessName || '[Your Business Name]'}
@@ -326,7 +405,8 @@ function InventoryTable({ inventory, filter, onLog, extraColumns = [] }) {
   const prettyHeader = (k) => k.replace(/_/g,' ').replace(/\b\w/g, c => c.toUpperCase());
 
   return (
-    <table className="inv-table">
+    <div style={{overflowX:'auto',width:'100%'}}>
+    <table className="inv-table" style={{minWidth:'100%'}}>
       <thead>
         <tr>
           <th>Product</th>
@@ -367,6 +447,7 @@ function InventoryTable({ inventory, filter, onLog, extraColumns = [] }) {
         })}
       </tbody>
     </table>
+    </div>
   );
 }
 
@@ -879,10 +960,10 @@ function App() {
         const res = await fetch(connection.url);
         const data = await res.json();
         if (!data.inventory || data.inventory.length === 0) throw new Error('No data found in sheet');
-        items = data.inventory.map(normalizeRow);
+        items = data.inventory.map(normalizeRow).filter(item => !isEmptyRow(item));
       } else if (connection.type === 'csv') {
         // CSV data is stored in connection.data
-        items = connection.data.map(normalizeRow);
+        items = connection.data.map(normalizeRow).filter(item => !isEmptyRow(item));
       }
       setInventory(items);
       const newDrafts = draftsFromInventory(items);
@@ -941,6 +1022,12 @@ function App() {
     const hasTemplate = settings.poTemplate && settings.poTemplate.trim().length > 20;
     const subject = `Reorder: ${draft.product} (${draft.sku})`;
 
+    // ── Allocate the next PO number for this order ──
+    const poNumber = nextPoNumber();
+
+    // Use vendor override email if user updated it
+    const recipientEmail = (vendorOverrides[draft.vendor]?.email) || draft.email;
+
     // ── Generate PO PDF if template is set ──
     let pdfBase64 = null;
     let pdfFilename = null;
@@ -961,7 +1048,7 @@ function App() {
         doc.text('PURCHASE ORDER', margin, 36);
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(9);
-        doc.text(`PO-${Date.now().toString().slice(-6)}  ·  ${new Date().toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'})}`, pageWidth - margin, 36, { align: 'right' });
+        doc.text(`${poNumber}  ·  ${new Date().toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'})}`, pageWidth - margin, 36, { align: 'right' });
 
         // Body
         doc.setTextColor(26, 26, 24);
@@ -981,7 +1068,7 @@ function App() {
         doc.setTextColor(107, 106, 101);
         doc.text(`Generated by Faith AI · ${settings.businessName || 'Your Business'}`, margin, doc.internal.pageSize.getHeight() - 24);
 
-        pdfFilename = `PO-${draft.sku || draft.id}-${Date.now().toString().slice(-6)}.pdf`;
+        pdfFilename = `${poNumber}-${draft.sku || draft.id}.pdf`;
         pdfBase64 = doc.output('datauristring').split(',')[1];
       } catch(e) {
         console.error('PDF generation failed:', e);
@@ -998,7 +1085,7 @@ function App() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          to: draft.email,
+          to: recipientEmail,
           subject,
           body: emailBody,
           attachmentBase64: pdfBase64,
@@ -1013,8 +1100,8 @@ function App() {
 
       setDrafts(d => d.map(x => x.id===id ? {...x, status:'approved', body} : x));
       logActivity({
-        type: 'order', itemId: id, itemName: draft.product, qty: draft.qty, vendor: draft.vendor,
-        note: hasTemplate ? `✓ Sent to ${draft.email} with PO PDF` : `✓ Sent to ${draft.email}`,
+        type: 'order', itemId: id, itemName: draft.product, qty: draft.qty, vendor: draft.vendor, poNumber,
+        note: hasTemplate ? `✓ Sent to ${recipientEmail} with PO PDF (${poNumber})` : `✓ Sent to ${recipientEmail} (${poNumber})`,
       });
       return;
     } catch (e) {
@@ -1036,7 +1123,7 @@ function App() {
         ? `Hi ${draft.vendor},\n\nPlease find our purchase order for ${draft.product} attached.\n\n— ${settings.businessName || ''}`
         : body
     );
-    setTimeout(() => window.open(`mailto:${draft.email}?subject=${encodeURIComponent(subject)}&body=${mailtoBody}`, '_blank'), pdfBase64 ? 800 : 0);
+    setTimeout(() => window.open(`mailto:${recipientEmail}?subject=${encodeURIComponent(subject)}&body=${mailtoBody}`, '_blank'), pdfBase64 ? 800 : 0);
 
     setDrafts(d => d.map(x => x.id===id ? {...x, status:'approved', body} : x));
     logActivity({
@@ -1045,7 +1132,8 @@ function App() {
       itemName: draft.product,
       qty: draft.qty,
       vendor: draft.vendor,
-      note: hasTemplate ? `PO PDF downloaded · email client opened for ${draft.vendor}` : `Email client opened for ${draft.vendor}`,
+      poNumber,
+      note: hasTemplate ? `PO PDF (${poNumber}) downloaded · email client opened for ${draft.vendor}` : `Email client opened for ${draft.vendor} (${poNumber})`,
     });
   }
   function handleDismiss(id) {
@@ -1067,6 +1155,40 @@ function App() {
     const next = [...localProducts, { ...p, id: 'local-' + Date.now(), local: true }];
     setLocalProducts(next);
     localStorage.setItem('faith_local_products', JSON.stringify(next));
+  }
+
+  // Vendor overrides — edit email/name/contact for vendors that came from sheet
+  const [vendorOverrides, setVendorOverrides] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('faith_vendor_overrides') || '{}'); }
+    catch(e) { return {}; }
+  });
+  function saveVendorOverride(vendorName, fields) {
+    const next = { ...vendorOverrides, [vendorName]: { ...vendorOverrides[vendorName], ...fields } };
+    setVendorOverrides(next);
+    localStorage.setItem('faith_vendor_overrides', JSON.stringify(next));
+  }
+  const [editingVendor, setEditingVendor] = useState(null);
+  const [showPoSettings, setShowPoSettings] = useState(false);
+
+  // PO numbering — sequential, editable, persistent
+  const [poConfig, setPoConfig] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('faith_po_config') || '{"prefix":"PO-","nextNumber":1001,"padding":4}'); }
+    catch(e) { return { prefix:'PO-', nextNumber:1001, padding:4 }; }
+  });
+  function formatPo(num, cfg = poConfig) {
+    return `${cfg.prefix}${String(num).padStart(cfg.padding || 0, '0')}`;
+  }
+  function nextPoNumber() {
+    const num = poConfig.nextNumber;
+    const next = { ...poConfig, nextNumber: num + 1 };
+    setPoConfig(next);
+    localStorage.setItem('faith_po_config', JSON.stringify(next));
+    return formatPo(num, next);
+  }
+  function updatePoConfig(updates) {
+    const next = { ...poConfig, ...updates };
+    setPoConfig(next);
+    localStorage.setItem('faith_po_config', JSON.stringify(next));
   }
 
   function logActivity(a) {
@@ -1136,18 +1258,35 @@ function App() {
 
   const pageTitles = { dashboard:'Inventory Dashboard', inventory:'All Inventory', activity:'Activity Log', orders:'Orders', vendors:'Vendors' };
 
-  // Vendors derived from your inventory sheet — grouped by vendor name
+  // Vendors derived from your inventory sheet — grouped by vendor name, with edit overrides applied
   const vendors = (() => {
     const map = new Map();
     liveInventory.forEach(item => {
       if (!item.vendor) return;
       const key = item.vendor;
       if (!map.has(key)) {
-        map.set(key, { name: item.vendor, email: item.vendorEmail || '', items: 0, lowItems: 0, status: 'active' });
+        const ov = vendorOverrides[key] || {};
+        map.set(key, {
+          name: ov.name || item.vendor,
+          originalName: item.vendor,
+          email: ov.email || item.vendorEmail || '',
+          contact: ov.contact || '',
+          phone: ov.phone || '',
+          notes: ov.notes || '',
+          items: 0,
+          lowItems: 0,
+          status: 'active',
+        });
       }
       const v = map.get(key);
       v.items += 1;
       if (['critical','low'].includes(getStatus(item.stock, item.safety))) v.lowItems += 1;
+    });
+    // Also include vendors that exist only as overrides (added manually)
+    Object.entries(vendorOverrides).forEach(([key, ov]) => {
+      if (!map.has(key) && ov.name) {
+        map.set(key, { name: ov.name, originalName: key, email: ov.email || '', contact: ov.contact || '', phone: ov.phone || '', notes: ov.notes || '', items: 0, lowItems: 0, status: 'active' });
+      }
     });
     return Array.from(map.values()).map((v, i) => ({ ...v, id: i + 1 }));
   })();
@@ -1156,7 +1295,7 @@ function App() {
   const orders = activities
     .filter(a => a.type === 'order')
     .map(a => ({
-      id: 'ORD-' + String(a.id).slice(-6),
+      id: a.poNumber || ('ORD-' + String(a.id).slice(-6)),
       vendor: a.vendor || '',
       product: a.itemName,
       qty: a.qty,
@@ -1171,7 +1310,7 @@ function App() {
         <div className="two-col">
           <div className="card">
             <div className="card-header">
-              <div><div className="card-title">All Products</div><div className="card-sub">Last synced from Google Sheets · just now</div></div>
+              <div><div className="card-title">All Products</div><div className="card-sub">{connection?.type === 'sheets' ? 'Synced live from your Google Sheet' : connection?.type === 'csv' ? `Uploaded \${connection?.filename || 'CSV file'}` : ''}</div></div>
               <div className="filter-tabs">
                 {[['all','All'],['alerts','Alerts'],['critical','Critical'],['good','Good']].map(([k,l]) => (
                   <button key={k} className={`filter-tab ${filter===k?'active':''}`} onClick={()=>setFilter(k)}>{l}</button>
@@ -1196,9 +1335,9 @@ function App() {
           <div className="stat-card"><div className="stat-label">Delivered</div><div className="stat-val">{orders.filter(o=>o.status==='delivered').length}</div><div className="stat-sub">Completed</div></div>
         </div>
         <div className="card">
-          <div className="card-header"><div className="card-title">Order History</div></div>
+          <div className="card-header"><div className="card-title">Order History</div><button className="action-btn" onClick={()=>setShowPoSettings(true)}>⚙ PO Settings</button></div>
           <table className="inv-table">
-            <thead><tr><th>Order ID</th><th>Vendor</th><th>Product</th><th>Qty</th><th>Total</th><th>Date</th><th>Status</th></tr></thead>
+            <thead><tr><th>PO Number</th><th>Vendor</th><th>Product</th><th>Qty</th><th>Total</th><th>Date</th><th>Status</th></tr></thead>
             <tbody>
               {orders.map(o => (
                 <tr key={o.id}>
@@ -1292,24 +1431,33 @@ function App() {
           <div className="stat-card"><div className="stat-label">Products tracked</div><div className="stat-val">{liveInventory.length}</div><div className="stat-sub">Across all vendors</div></div>
         </div>
         <div className="card">
-          <div className="card-header"><div><div className="card-title">Vendor Directory</div><div className="card-sub">Pulled from the Vendor column of your sheet</div></div></div>
+          <div className="card-header">
+            <div>
+              <div className="card-title">Vendor Directory</div>
+              <div className="card-sub">Pulled from your sheet — add missing emails by clicking Edit</div>
+            </div>
+          </div>
           {vendors.length === 0 ? (
             <div className="empty-state"><div style={{fontSize:'2rem',marginBottom:8,opacity:0.4}}>◈</div><div style={{fontWeight:600,marginBottom:4}}>No vendors found</div><div style={{fontSize:'0.8rem',color:'var(--fg-muted)'}}>Add a <code>Vendor</code> column to your sheet to see vendors here.</div></div>
           ) : (
+            <div style={{overflowX:'auto'}}>
             <table className="inv-table">
-              <thead><tr><th>Vendor</th><th>Email</th><th>Products</th><th>Low Stock</th><th>Status</th></tr></thead>
+              <thead><tr><th>Vendor</th><th>Contact</th><th>Email</th><th>Phone</th><th>Products</th><th>Low Stock</th><th style={{textAlign:'right'}}></th></tr></thead>
               <tbody>
                 {vendors.map(v => (
                   <tr key={v.id}>
                     <td><span style={{fontWeight:700}}>{v.name}</span></td>
-                    <td style={{fontSize:'0.78rem',color:'var(--accent)'}}>{v.email || <span style={{color:'var(--fg-muted)'}}>— missing in sheet</span>}</td>
-                    <td style={{fontSize:'0.82rem'}}>{v.items} product{v.items>1?'s':''}</td>
+                    <td style={{fontSize:'0.82rem',color:'var(--fg-muted)'}}>{v.contact || <span style={{color:'var(--border)'}}>—</span>}</td>
+                    <td style={{fontSize:'0.78rem',color:v.email?'var(--accent)':'var(--fg-muted)'}}>{v.email || <span style={{color:'var(--red)'}}>Missing</span>}</td>
+                    <td style={{fontSize:'0.8rem',color:'var(--fg-muted)'}}>{v.phone || <span style={{color:'var(--border)'}}>—</span>}</td>
+                    <td style={{fontSize:'0.82rem'}}>{v.items} product{v.items===1?'':'s'}</td>
                     <td>{v.lowItems > 0 ? <span className="badge" style={{background:'var(--amber-light)',color:'var(--amber)'}}>{v.lowItems} low</span> : <span style={{fontSize:'0.78rem',color:'var(--fg-muted)'}}>None</span>}</td>
-                    <td><span className="badge" style={{background:'var(--accent-light)',color:'var(--accent)'}}>active</span></td>
+                    <td style={{textAlign:'right'}}><button className="action-btn" onClick={()=>setEditingVendor(v)}>Edit</button></td>
                   </tr>
                 ))}
               </tbody>
             </table>
+            </div>
           )}
         </div>
       </div>
@@ -1345,12 +1493,6 @@ function App() {
             </a>
           ))}
           <div className="nav-section">Settings</div>
-          <a className="nav-item" href="#">
-            <span style={{fontSize:'0.85rem'}}>⊕</span>Integrations
-          </a>
-          <a className="nav-item" href="#">
-            <span style={{fontSize:'0.85rem'}}>◉</span>Settings
-          </a>
           <a className="nav-item" href="#" onClick={(e)=>{e.preventDefault();handleDisconnect();}}>
             <span style={{fontSize:'0.85rem'}}>⧄</span>Disconnect Sheet
           </a>
@@ -1432,7 +1574,7 @@ function App() {
               <div className="card-header">
                 <div>
                   <div className="card-title">Inventory</div>
-                  <div className="card-sub">Last synced from Google Sheets · just now</div>
+                  <div className="card-sub">{connection?.type === 'sheets' ? 'Synced live from your Google Sheet' : connection?.type === 'csv' ? `Uploaded \${connection?.filename || 'CSV file'}` : ''}</div>
                 </div>
                 <div className="filter-tabs">
                   {[['all','All'],['alerts','Alerts'],['critical','Critical'],['good','Good']].map(([k,l]) => (
@@ -1592,7 +1734,116 @@ function App() {
       {showAddProduct && (
         <AddProductModal extraColumns={extraColumns} onSave={(p)=>{addLocalProduct(p); setShowAddProduct(false);}} onClose={()=>setShowAddProduct(false)}/>
       )}
+
+      {/* VENDOR EDIT MODAL */}
+      {editingVendor && (
+        <VendorEditModal
+          vendor={editingVendor}
+          onSave={(fields)=>{saveVendorOverride(editingVendor.originalName, fields); setEditingVendor(null);}}
+          onClose={()=>setEditingVendor(null)}
+        />
+      )}
+
+      {/* PO SETTINGS MODAL */}
+      {showPoSettings && (
+        <PoSettingsModal config={poConfig} onSave={(c)=>{updatePoConfig(c); setShowPoSettings(false);}} onClose={()=>setShowPoSettings(false)} />
+      )}
     </>
+  );
+}
+
+function VendorEditModal({ vendor, onSave, onClose }) {
+  const [name, setName] = useState(vendor.name || '');
+  const [email, setEmail] = useState(vendor.email || '');
+  const [contact, setContact] = useState(vendor.contact || '');
+  const [phone, setPhone] = useState(vendor.phone || '');
+  const [notes, setNotes] = useState(vendor.notes || '');
+
+  function handleSubmit() {
+    if (!name.trim()) { alert('Vendor name required'); return; }
+    onSave({ name: name.trim(), email: email.trim(), contact: contact.trim(), phone: phone.trim(), notes: notes.trim() });
+  }
+
+  const inp = { width:'100%', padding:'10px 12px', borderRadius:8, border:'1.5px solid var(--border)', fontSize:'0.85rem', outline:'none', background:'var(--bg)', color:'var(--fg)', fontFamily:'inherit', marginBottom:12 };
+  const lbl = { display:'block', fontSize:'0.72rem', fontWeight:600, color:'var(--fg-muted)', marginBottom:4, textTransform:'uppercase', letterSpacing:'0.04em' };
+
+  return (
+    <div style={{position:'fixed',inset:0,background:'oklch(0% 0 0 / 0.5)',zIndex:3000,display:'flex',alignItems:'center',justifyContent:'center',padding:'24px'}} onClick={onClose}>
+      <div style={{background:'var(--surface)',borderRadius:16,width:'100%',maxWidth:520,maxHeight:'90vh',display:'flex',flexDirection:'column',boxShadow:'0 24px 80px oklch(0% 0 0 / 0.2)',overflow:'hidden'}} onClick={e=>e.stopPropagation()}>
+        <div style={{padding:'20px 24px',borderBottom:'1px solid var(--border)',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+          <div>
+            <div style={{fontWeight:700,fontSize:'1rem',letterSpacing:'-0.02em'}}>Edit Vendor</div>
+            <div style={{fontSize:'0.78rem',color:'var(--fg-muted)',marginTop:2}}>Faith will use these details for all future emails</div>
+          </div>
+          <button onClick={onClose} style={{background:'none',border:'none',cursor:'pointer',fontSize:'1.1rem',color:'var(--fg-muted)',padding:'4px 8px',borderRadius:6,fontFamily:'inherit'}}>✕</button>
+        </div>
+        <div style={{padding:'20px 24px',overflowY:'auto',flex:1}}>
+          <label style={lbl}>Vendor name *</label>
+          <input style={inp} value={name} onChange={e=>setName(e.target.value)} autoFocus/>
+          <label style={lbl}>Contact person</label>
+          <input style={inp} value={contact} onChange={e=>setContact(e.target.value)} placeholder="e.g. Sarah Mills"/>
+          <label style={lbl}>Email address</label>
+          <input type="email" style={inp} value={email} onChange={e=>setEmail(e.target.value)} placeholder="orders@vendor.com"/>
+          <label style={lbl}>Phone</label>
+          <input style={inp} value={phone} onChange={e=>setPhone(e.target.value)} placeholder="+1 555 0101"/>
+          <label style={lbl}>Notes</label>
+          <textarea style={{...inp, minHeight:60, resize:'vertical'}} value={notes} onChange={e=>setNotes(e.target.value)} placeholder="Order minimums, delivery terms, payment preferences…"/>
+        </div>
+        <div style={{padding:'14px 24px',borderTop:'1px solid var(--border)',display:'flex',justifyContent:'flex-end',gap:8,background:'var(--bg)'}}>
+          <button onClick={onClose} style={{background:'transparent',border:'1.5px solid var(--border)',padding:'8px 18px',borderRadius:8,fontWeight:600,fontSize:'0.82rem',cursor:'pointer',fontFamily:'inherit'}}>Cancel</button>
+          <button onClick={handleSubmit} style={{background:'var(--accent)',color:'#fff',border:'none',padding:'8px 18px',borderRadius:8,fontWeight:700,fontSize:'0.82rem',cursor:'pointer',fontFamily:'inherit'}}>Save</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PoSettingsModal({ config, onSave, onClose }) {
+  const [prefix, setPrefix] = useState(config.prefix || 'PO-');
+  const [nextNumber, setNextNumber] = useState(config.nextNumber || 1001);
+  const [padding, setPadding] = useState(config.padding || 4);
+
+  function handleSubmit() {
+    const num = Number(nextNumber);
+    if (!num || num < 1) { alert('Next PO number must be a positive integer'); return; }
+    onSave({ prefix: prefix.trim() || 'PO-', nextNumber: num, padding: Number(padding) || 0 });
+  }
+
+  const preview = `${prefix || 'PO-'}${String(nextNumber || 1001).padStart(Number(padding) || 0, '0')}`;
+  const inp = { width:'100%', padding:'10px 12px', borderRadius:8, border:'1.5px solid var(--border)', fontSize:'0.85rem', outline:'none', background:'var(--bg)', color:'var(--fg)', fontFamily:'inherit', marginBottom:12 };
+  const lbl = { display:'block', fontSize:'0.72rem', fontWeight:600, color:'var(--fg-muted)', marginBottom:4, textTransform:'uppercase', letterSpacing:'0.04em' };
+
+  return (
+    <div style={{position:'fixed',inset:0,background:'oklch(0% 0 0 / 0.5)',zIndex:3000,display:'flex',alignItems:'center',justifyContent:'center',padding:'24px'}} onClick={onClose}>
+      <div style={{background:'var(--surface)',borderRadius:16,width:'100%',maxWidth:480,boxShadow:'0 24px 80px oklch(0% 0 0 / 0.2)',overflow:'hidden'}} onClick={e=>e.stopPropagation()}>
+        <div style={{padding:'20px 24px',borderBottom:'1px solid var(--border)',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+          <div>
+            <div style={{fontWeight:700,fontSize:'1rem',letterSpacing:'-0.02em'}}>PO Numbering</div>
+            <div style={{fontSize:'0.78rem',color:'var(--fg-muted)',marginTop:2}}>Set the format and starting number — each order increments by 1</div>
+          </div>
+          <button onClick={onClose} style={{background:'none',border:'none',cursor:'pointer',fontSize:'1.1rem',color:'var(--fg-muted)',padding:'4px 8px',borderRadius:6,fontFamily:'inherit'}}>✕</button>
+        </div>
+        <div style={{padding:'20px 24px'}}>
+          <div style={{padding:'14px 16px',background:'var(--accent-light)',border:'1px solid var(--accent)',borderRadius:8,marginBottom:18,textAlign:'center'}}>
+            <div style={{fontSize:'0.72rem',color:'var(--fg-muted)',textTransform:'uppercase',letterSpacing:'0.04em',marginBottom:4}}>Next PO will be</div>
+            <div style={{fontSize:'1.5rem',fontWeight:800,color:'var(--accent)',fontFamily:'monospace'}}>{preview}</div>
+          </div>
+          <label style={lbl}>Prefix</label>
+          <input style={inp} value={prefix} onChange={e=>setPrefix(e.target.value)} placeholder="PO-"/>
+          <label style={lbl}>Next number</label>
+          <input type="number" style={inp} value={nextNumber} onChange={e=>setNextNumber(e.target.value)}/>
+          <label style={lbl}>Number padding (zeros)</label>
+          <input type="number" style={inp} value={padding} onChange={e=>setPadding(e.target.value)} placeholder="4 = 0001"/>
+          <div style={{fontSize:'0.75rem',color:'var(--fg-muted)',lineHeight:1.6,padding:'10px 12px',background:'var(--bg)',borderRadius:6}}>
+            Each time you approve a draft, Faith assigns the next number and increments by 1. You can edit this anytime to skip numbers or restart a series.
+          </div>
+        </div>
+        <div style={{padding:'14px 24px',borderTop:'1px solid var(--border)',display:'flex',justifyContent:'flex-end',gap:8,background:'var(--bg)'}}>
+          <button onClick={onClose} style={{background:'transparent',border:'1.5px solid var(--border)',padding:'8px 18px',borderRadius:8,fontWeight:600,fontSize:'0.82rem',cursor:'pointer',fontFamily:'inherit'}}>Cancel</button>
+          <button onClick={handleSubmit} style={{background:'var(--accent)',color:'#fff',border:'none',padding:'8px 18px',borderRadius:8,fontWeight:700,fontSize:'0.82rem',cursor:'pointer',fontFamily:'inherit'}}>Save</button>
+        </div>
+      </div>
+    </div>
   );
 }
 
