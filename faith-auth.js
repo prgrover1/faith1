@@ -16,10 +16,6 @@
 const SUPABASE_URL = 'https://ppzwxvmdoemfxfzrwpkz.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBwend4dm1kb2VtZnhmenJ3cGt6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkyNzE4NzIsImV4cCI6MjA5NDg0Nzg3Mn0.uje8FmVTcvCYHpnsUhG0lCF257uKzXo8MQRoHsIiaI8';
 
-// Expose globals so dashboard.html (which uses Babel-transpiled JSX) can read them
-window.SUPABASE_URL = SUPABASE_URL;
-window.SUPABASE_ANON_KEY = SUPABASE_ANON_KEY;
-
 // Lightweight Supabase client wrapper (no SDK dependency — pure fetch)
 const auth = {
   _accessToken: () => localStorage.getItem('faith_access_token') || null,
@@ -82,6 +78,3 @@ const auth = {
     }
   },
 };
-
-// Expose to window so the Babel-transpiled dashboard can call it
-window.auth = auth;
