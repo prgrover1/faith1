@@ -1,0 +1,2227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Faith — Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"/>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<!-- jsPDF for generating PO PDF attachments -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<!-- pdf.js for reading PDF PO templates -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script>if(window.pdfjsLib){pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';}</script>
+<!-- mammoth for reading .docx PO templates -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+<!-- Faith auth helpers (Supabase) -->
+<script src="faith-auth.js?v=2"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: oklch(97% 0.007 80);
+    --surface: #fff;
+    --fg: oklch(18% 0.012 260);
+    --fg-muted: oklch(48% 0.01 260);
+    --fg-faint: oklch(70% 0.008 260);
+    --accent: oklch(52% 0.13 160);
+    --accent-light: oklch(94% 0.04 160);
+    --amber: oklch(65% 0.14 65);
+    --amber-light: oklch(96% 0.04 80);
+    --red: oklch(52% 0.18 25);
+    --red-light: oklch(96% 0.05 25);
+    --border: oklch(89% 0.006 80);
+    --sidebar-w: 220px;
+    --shadow: 0 1px 3px oklch(0% 0 0 / 0.05), 0 4px 16px oklch(0% 0 0 / 0.04);
+  }
+  body { font-family: 'Plus Jakarta Sans', sans-serif; background: var(--bg); color: var(--fg); height: 100vh; overflow: hidden; }
+  #root { display: flex; height: 100vh; overflow: hidden; }
+
+  /* SIDEBAR */
+  .sidebar { width: var(--sidebar-w); background: var(--surface); border-right: 1px solid var(--border); display: flex; flex-direction: column; flex-shrink: 0; height: 100vh; }
+  .sidebar-logo { padding: 20px 20px 16px; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid var(--border); transition: opacity 0.15s; }
+  .sidebar-logo:hover { opacity: 0.75; }
+  .logo-mark { font-size: 1.4rem; color: var(--accent); line-height: 1; }
+  .sidebar-logo span { font-weight: 800; font-size: 1.1rem; letter-spacing: -0.03em; color: #111; }
+  .sidebar-nav { padding: 12px 10px; flex: 1; display: flex; flex-direction: column; gap: 2px; }
+  .nav-item { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 8px; font-size: 0.85rem; font-weight: 500; color: var(--fg-muted); cursor: pointer; transition: background 0.15s, color 0.15s; text-decoration: none; }
+  .nav-item:hover { background: var(--bg); color: var(--fg); }
+  .nav-item.active { background: var(--accent-light); color: var(--accent); font-weight: 600; }
+  .nav-section { font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--fg-faint); padding: 12px 12px 4px; }
+  .sidebar-footer { padding: 16px; border-top: 1px solid var(--border); }
+  .sidebar-user { display: flex; align-items: center; gap: 10px; }
+  .user-avatar { width: 32px; height: 32px; background: var(--accent-light); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.75rem; color: var(--accent); }
+  .user-info { flex: 1; min-width: 0; }
+  .user-name { font-size: 0.8rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .user-role { font-size: 0.7rem; color: var(--fg-muted); }
+
+  /* MAIN */
+  .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+  .topbar { background: var(--surface); border-bottom: 1px solid var(--border); padding: 0 28px; height: 56px; display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; }
+  .topbar-title { font-weight: 700; font-size: 1rem; letter-spacing: -0.02em; }
+  .topbar-right { display: flex; align-items: center; gap: 12px; }
+  .topbar-badge { background: var(--amber-light); color: var(--amber); padding: 4px 10px; border-radius: 100px; font-size: 0.72rem; font-weight: 700; cursor: pointer; }
+  .sync-btn { display: flex; align-items: center; gap: 6px; background: var(--bg); border: 1px solid var(--border); padding: 6px 14px; border-radius: 8px; font-size: 0.8rem; font-weight: 600; color: var(--fg-muted); cursor: pointer; transition: color 0.15s; }
+  .sync-btn:hover { color: var(--fg); }
+  .content { flex: 1; overflow-y: auto; padding: 28px; display: flex; flex-direction: column; gap: 24px; }
+
+  /* STAT CARDS */
+  .stat-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+  .stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px; box-shadow: var(--shadow); }
+  .stat-card.alert-card { background: var(--amber-light); border-color: oklch(85% 0.07 70); }
+  .stat-card.critical-card { background: var(--red-light); border-color: oklch(88% 0.07 25); }
+  .stat-label { font-size: 0.72rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--fg-muted); margin-bottom: 10px; }
+  .stat-card.alert-card .stat-label { color: oklch(52% 0.1 60); }
+  .stat-card.critical-card .stat-label { color: oklch(45% 0.15 25); }
+  .stat-val { font-size: 2rem; font-weight: 800; letter-spacing: -0.04em; color: var(--fg); line-height: 1; }
+  .stat-card.alert-card .stat-val { color: oklch(42% 0.12 50); }
+  .stat-card.critical-card .stat-val { color: var(--red); }
+  .stat-sub { font-size: 0.75rem; color: var(--fg-muted); margin-top: 6px; }
+
+  /* TWO-COL LAYOUT */
+  .two-col { display: grid; grid-template-columns: 1fr 360px; gap: 20px; }
+
+  /* TABLE CARD */
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow); overflow: hidden; }
+  .card-header { padding: 16px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+  .card-title { font-size: 0.9rem; font-weight: 700; letter-spacing: -0.01em; }
+  .card-sub { font-size: 0.75rem; color: var(--fg-muted); margin-top: 2px; }
+  .filter-tabs { display: flex; gap: 4px; }
+  .filter-tab { padding: 4px 12px; border-radius: 6px; font-size: 0.75rem; font-weight: 600; cursor: pointer; border: 1px solid transparent; transition: all 0.15s; color: var(--fg-muted); }
+  .filter-tab.active { background: var(--fg); color: #fff; }
+  .filter-tab:not(.active):hover { background: var(--bg); border-color: var(--border); color: var(--fg); }
+
+  .inv-table { width: 100%; border-collapse: collapse; }
+  .inv-table thead tr { background: oklch(97% 0.005 80); }
+  .inv-table th { padding: 10px 20px; text-align: left; font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--fg-muted); border-bottom: 1px solid var(--border); }
+  .inv-table td { padding: 13px 20px; border-bottom: 1px solid var(--border); font-size: 0.82rem; color: var(--fg); }
+  .inv-table tbody tr:last-child td { border-bottom: none; }
+  .inv-table tbody tr:hover td { background: oklch(98.5% 0.005 80); }
+  .prod-name { font-weight: 600; }
+  .prod-sku { font-size: 0.7rem; color: var(--fg-muted); font-weight: 400; }
+  .stock-bar-wrap { display: flex; align-items: center; gap: 10px; }
+  .stock-bar { flex: 1; height: 5px; background: var(--border); border-radius: 100px; overflow: hidden; max-width: 80px; }
+  .stock-fill { height: 100%; border-radius: 100px; transition: width 0.3s; }
+  .stock-num { font-weight: 700; font-size: 0.82rem; min-width: 28px; }
+  .badge { display: inline-flex; align-items: center; padding: 3px 9px; border-radius: 100px; font-size: 0.68rem; font-weight: 700; }
+  .badge.critical { background: var(--red-light); color: var(--red); }
+  .badge.low { background: var(--amber-light); color: var(--amber); }
+  .badge.good { background: var(--accent-light); color: var(--accent); }
+  .badge.ok { background: oklch(94% 0.005 260); color: var(--fg-muted); }
+  .action-btn { background: transparent; border: 1px solid var(--border); padding: 4px 10px; border-radius: 6px; font-size: 0.72rem; font-weight: 600; color: var(--fg-muted); cursor: pointer; transition: all 0.15s; }
+  .action-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* FAITH PANEL */
+  .faith-panel { display: flex; flex-direction: column; gap: 16px; }
+  .faith-header { padding: 16px 20px; border-bottom: 1px solid var(--border); }
+  .faith-title-row { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+  .faith-dot { width: 8px; height: 8px; background: var(--accent); border-radius: 50%; animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+  .faith-panel-title { font-size: 0.9rem; font-weight: 700; }
+  .faith-panel-sub { font-size: 0.75rem; color: var(--fg-muted); }
+  .faith-scroll { padding: 16px; display: flex; flex-direction: column; gap: 12px; overflow-y: auto; flex: 1; }
+  .draft-card { background: var(--bg); border: 1px solid var(--border); border-radius: 10px; padding: 14px; transition: border-color 0.2s; }
+  .draft-card:hover { border-color: oklch(78% 0.01 260); }
+  .draft-card.approved { border-color: var(--accent); background: var(--accent-light); opacity: 0.7; }
+  .draft-card.dismissed { opacity: 0.4; }
+  .draft-vendor { font-size: 0.72rem; color: var(--fg-muted); margin-bottom: 2px; }
+  .draft-vendor strong { color: var(--fg); font-weight: 600; }
+  .faith-tag-inline { display: inline-flex; align-items: center; gap: 4px; font-size: 0.65rem; color: var(--accent); font-weight: 700; background: var(--accent-light); padding: 2px 7px; border-radius: 100px; margin-bottom: 6px; }
+  .draft-body { font-size: 0.78rem; color: var(--fg); line-height: 1.55; margin-bottom: 10px; }
+  .draft-actions { display: flex; gap: 7px; }
+  .btn-approve { background: var(--accent); color: #fff; border: none; padding: 6px 14px; border-radius: 7px; font-size: 0.75rem; font-weight: 700; cursor: pointer; transition: opacity 0.15s; font-family: inherit; }
+  .btn-approve:hover { opacity: 0.85; }
+  .btn-edit { background: transparent; border: 1px solid var(--border); color: var(--fg-muted); padding: 6px 10px; border-radius: 7px; font-size: 0.75rem; font-weight: 600; cursor: pointer; transition: color 0.15s, border-color 0.15s; font-family: inherit; }
+  .btn-edit:hover { color: var(--fg); border-color: oklch(75% 0.01 260); }
+  .btn-dismiss { background: transparent; border: none; color: var(--fg-faint); padding: 6px 8px; font-size: 0.75rem; cursor: pointer; font-family: inherit; }
+  .approved-label { font-size: 0.75rem; font-weight: 700; color: var(--accent); }
+  .empty-state { text-align: center; padding: 32px 16px; color: var(--fg-muted); font-size: 0.82rem; }
+
+  /* TWEAKS PANEL */
+  .tweaks-panel { position: fixed; bottom: 24px; right: 24px; background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 20px; box-shadow: 0 8px 32px oklch(0% 0 0 / 0.12); z-index: 1000; width: 260px; display: none; }
+  .tweaks-panel.visible { display: block; }
+  .tweaks-title { font-size: 0.85rem; font-weight: 700; margin-bottom: 16px; display: flex; align-items: center; justify-content: space-between; }
+  .tweaks-close { background: none; border: none; cursor: pointer; color: var(--fg-muted); font-size: 1rem; }
+  .tweak-row { margin-bottom: 14px; }
+  .tweak-label { font-size: 0.72rem; font-weight: 600; color: var(--fg-muted); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.05em; }
+  .tweak-options { display: flex; gap: 6px; flex-wrap: wrap; }
+  .tweak-opt { padding: 4px 12px; border-radius: 6px; font-size: 0.75rem; font-weight: 600; cursor: pointer; border: 1.5px solid var(--border); color: var(--fg-muted); transition: all 0.15s; background: transparent; font-family: inherit; }
+  .tweak-opt.selected { border-color: var(--accent); color: var(--accent); background: var(--accent-light); }
+  .tweak-toggle { display: flex; align-items: center; justify-content: space-between; }
+  .toggle-switch { width: 36px; height: 20px; background: var(--border); border-radius: 100px; position: relative; cursor: pointer; transition: background 0.2s; }
+  .toggle-switch.on { background: var(--accent); }
+  .toggle-knob { position: absolute; width: 14px; height: 14px; background: #fff; border-radius: 50%; top: 3px; left: 3px; transition: left 0.2s; }
+  .toggle-switch.on .toggle-knob { left: 19px; }
+  @keyframes shimmer { 0%,100%{opacity:0.4} 50%{opacity:0.8} }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel">
+const { useState, useEffect } = React;
+
+const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+  "theme": "light",
+  "density": "comfortable",
+  "autoApprove": false,
+  "sidebar": "icons+labels",
+  "accent": "oklch(52% 0.13 160)"
+}/*EDITMODE-END*/;
+
+// ── GOOGLE SHEETS CONNECTION (per-user) ──
+// Each user pastes their own Apps Script URL on first run.
+// Stored in localStorage — in a real SaaS this would be in your user database.
+
+// Smart fuzzy column matcher — tries many synonyms per field
+// Patterns within each list are listed in PRIORITY ORDER (most specific first).
+// The global resolver below ensures each sheet column maps to AT MOST ONE Faith field,
+// and ties are broken by which field's pattern appears earlier in the list.
+const COLUMN_ALIASES = {
+  name:        [/^product$/, /^product[\s_]*name$/, /^item[\s_]*name$/, /^material[\s_]*name$/, /^name$/, /^item$/, /^material$/, /^title$/, /^description$/, /^description[\s_]*of[\s_]*goods/, /^stock[\s_]*item/, /^goods/],
+  sku:         [/^sku$/, /^item[\s_]*code$/, /^product[\s_]*code$/, /^material[\s_]*code$/, /^part[\s_]*no\.?$/, /^part[\s_]*number$/, /^item[\s_]*id$/, /^product[\s_]*id$/, /^code$/, /^id$/, /^reference$/, /^ref$/],
+  category:    [/^category$/, /^type$/, /^group$/, /^class$/, /^classification$/, /^segment$/, /^family$/, /^department$/, /^dept\.?$/],
+  stock:       [/^stock$/, /^current[\s_]*stock$/, /^qty[\s_]*at[\s_]*hand$/, /^qty[\s_]*in[\s_]*hand$/, /^on[\s_]*hand$/, /^stock[\s_]*on[\s_]*hand$/, /^in[\s_]*stock$/, /^available[\s_]*stock$/, /^qty$/, /^quantity$/, /^available$/, /^balance$/, /^inventory$/, /^count$/, /^units$/],
+  safety:      [/^safety[\s_]*stock$/, /^safety$/, /^reorder[\s_]*point$/, /^reorder[\s_]*level$/, /^minimum[\s_]*stock$/, /^minimum[\s_]*level$/, /^min[\s_]*stock$/, /^par[\s_]*level$/, /^low[\s_]*stock[\s_]*alert$/, /^threshold$/, /^min(imum)?$/],
+  vendor:      [/^vendor[\s_]*name$/, /^supplier[\s_]*name$/, /^vendor$/, /^supplier$/, /^seller$/, /^manufacturer$/, /^source$/, /^provider$/, /^brand$/, /^company$/],
+  vendorEmail: [/^vendor[\s_]*email$/, /^supplier[\s_]*email$/, /^contact[\s_]*email$/, /^email$/, /^e[\s_]*mail$/, /^email[\s_]*address$/],
+  unitCost:    [/^unit[\s_]*cost$/, /^cost[\s_]*per[\s_]*unit$/, /^purchase[\s_]*price$/, /^buy[\s_]*price$/, /^unit[\s_]*price$/, /^cost$/, /^price$/, /^rate$/, /^mrp$/, /^value$/],
+  reorderQty:  [/^reorder[\s_]*qty$/, /^reorder[\s_]*quantity$/, /^reorder[\s_]*amount$/, /^restock[\s_]*qty$/, /^order[\s_]*qty$/, /^order[\s_]*quantity$/, /^reorder$/],
+};
+
+const FIELD_ORDER = ['name','sku','category','stock','safety','vendor','vendorEmail','unitCost','reorderQty'];
+
+// GLOBAL RESOLVER:
+// Build a [field, pattern, priority] table for all aliases, then for each sheet column find the
+// HIGHEST-priority (field, pattern) it matches. This guarantees one column → one field, and
+// patterns/fields listed earlier win conflicts.
+function buildColumnMapping(rowKeys) {
+  const scored = []; // { col, field, patternIndex, fieldIndex }
+  rowKeys.forEach(col => {
+    const k = String(col).toLowerCase().trim();
+    for (let fi = 0; fi < FIELD_ORDER.length; fi++) {
+      const field = FIELD_ORDER[fi];
+      const patterns = COLUMN_ALIASES[field];
+      for (let pi = 0; pi < patterns.length; pi++) {
+        if (patterns[pi].test(k)) {
+          scored.push({ col, field, patternIndex: pi, fieldIndex: fi });
+          break; // only the best pattern within a field
+        }
+      }
+    }
+  });
+  // Sort by: lowest patternIndex (most specific) first, then lowest fieldIndex
+  scored.sort((a, b) => a.patternIndex - b.patternIndex || a.fieldIndex - b.fieldIndex);
+  // Assign each field to at most one column, each column to at most one field
+  const fieldToCol = {};   // field → column key
+  const usedCols = new Set();
+  scored.forEach(({ col, field }) => {
+    if (fieldToCol[field] !== undefined) return; // field already claimed
+    if (usedCols.has(col)) return;                // column already claimed
+    fieldToCol[field] = col;
+    usedCols.add(col);
+  });
+  return { fieldToCol, usedCols };
+}
+
+function normalizeRow(r, idx) {
+  const num = (v) => {
+    if (v === null || v === undefined || v === '') return null;
+    const cleaned = String(v).replace(/[^0-9.\-]/g, '');
+    const n = Number(cleaned);
+    return isNaN(n) ? null : n;
+  };
+
+  const { fieldToCol, usedCols } = buildColumnMapping(Object.keys(r));
+  const get = (field) => {
+    const col = fieldToCol[field];
+    if (!col) return null;
+    const v = r[col];
+    return (v === undefined || v === null || String(v).trim() === '') ? null : v;
+  };
+
+  const std = {
+    id: idx + 1,
+    name: get('name') ? String(get('name')).trim() : '',
+    sku: get('sku') ? String(get('sku')).trim() : '',
+    category: get('category') ? String(get('category')).trim() : '',
+    stock: num(get('stock')),
+    safety: num(get('safety')),
+    vendor: get('vendor') ? String(get('vendor')).trim() : '',
+    vendorEmail: get('vendorEmail') ? String(get('vendorEmail')).trim() : '',
+    unitCost: num(get('unitCost')),
+    reorderQty: num(get('reorderQty')),
+  };
+
+  // Any column NOT used by a known field becomes an "extra" column (rendered dynamically)
+  std.extra = {};
+  Object.keys(r).forEach(k => {
+    if (!usedCols.has(k) && k !== 'id') {
+      const v = r[k];
+      if (v !== null && v !== undefined && String(v).trim() !== '') std.extra[k] = v;
+    }
+  });
+
+  return std;
+}
+
+// Skip empty rows — any row that has no name/sku and no meaningful data
+function isEmptyRow(item) {
+  if (item.name && item.name.trim()) return false;
+  if (item.sku && item.sku.trim()) return false;
+  if (item.stock !== null) return false;
+  // Has any extra column data?
+  if (item.extra && Object.values(item.extra).some(v => v !== null && v !== undefined && String(v).trim() !== '')) return false;
+  return true;
+}
+
+const initialInventory = [
+  { id:1, name:"Loading from Google Sheets…", sku:"—", category:"—", stock:0, safety:0, vendor:"—", vendorEmail:"", unitCost:0, reorderQty:0 },
+];
+
+function getStatus(stock, safety) {
+  const ratio = stock / safety;
+  if (ratio <= 0.3) return 'critical';
+  if (ratio <= 1) return 'low';
+  if (ratio <= 1.5) return 'ok';
+  return 'good';
+}
+
+function getStockColor(status) {
+  if (status === 'critical') return 'oklch(52% 0.18 25)';
+  if (status === 'low') return 'oklch(65% 0.14 65)';
+  if (status === 'ok') return 'oklch(70% 0.01 260)';
+  return 'oklch(52% 0.13 160)';
+}
+
+function draftsFromInventory(inv) {
+  return inv
+    .filter(i => getStatus(i.stock, i.safety) === 'critical' || getStatus(i.stock, i.safety) === 'low')
+    .map(i => ({
+      id: i.id,
+      vendor: i.vendor,
+      email: i.vendorEmail,
+      product: i.name,
+      sku: i.sku,
+      qty: i.reorderQty,
+      stock: i.stock,
+      safety: i.safety,
+      unitCost: i.unitCost,
+      status: 'pending',
+      loading: true,
+      body: '',
+    }));
+}
+
+// ── CLAUDE AI: GENERATE PROFESSIONAL EMAIL OR PO ──
+// ── FAITH BACKEND (you, the SaaS owner, deploy this ONCE.
+//    All your customers use the same URL — no setup on their end.) ──
+const FAITH_API = 'https://faith-server-41cx.onrender.com'; // Render email server
+
+async function generateDraftBody(draft, settings, poNumber) {
+  const { businessName, businessContact, businessAddress, poTemplate } = settings;
+  const total = (draft.qty * draft.unitCost).toFixed(2);
+
+  let prompt;
+  if (poTemplate && poTemplate.trim().length > 20) {
+    prompt = `You are a procurement assistant. A small business needs to reorder a product. Fill in their PURCHASE ORDER TEMPLATE below using the order details. Output ONLY the completed purchase order as it should be sent — no preamble, no explanation, no markdown code fences.
+
+ORDER DETAILS:
+- Product: ${draft.product}
+- SKU: ${draft.sku}
+- Quantity: ${draft.qty} units
+- Unit price: $${draft.unitCost}
+- Total: $${total}
+- Vendor: ${draft.vendor}
+- Current stock: ${draft.stock} (below safety threshold of ${draft.safety})
+- Order date: ${new Date().toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'})}
+- PO number: ${poNumber || 'PO-' + Date.now().toString().slice(-6)}
+
+BUYER INFO:
+- Business: ${businessName || '[Your Business Name]'}
+- Contact: ${businessContact || '[Contact Name]'}
+- Address: ${businessAddress || '[Address]'}
+
+TEMPLATE TO FILL:
+${poTemplate}
+
+Replace any placeholders, brackets, or blanks in the template with the actual order details. Keep the template's formatting and style.`;
+  } else {
+    prompt = `You're a professional procurement officer writing a brief, warm reorder email to a vendor. Write the email as plain text — no markdown, no code fences, no preamble. Start with "Hi" and the vendor contact name (or "Hi team," if no contact). End with "Thanks," and the business name on the next line.
+
+Keep it concise (3-4 short paragraphs max). Sound human and businesslike, not corporate. Mention:
+- We're running low on the product (without sounding desperate)
+- The reorder quantity and unit cost
+- Ask for confirmation of availability and estimated delivery
+- Reference our usual order terms
+
+ORDER DETAILS:
+- Product: ${draft.product} (SKU: ${draft.sku})
+- Reorder quantity: ${draft.qty} units at $${draft.unitCost}/unit (Total: $${total})
+- Vendor: ${draft.vendor}
+- Current stock: ${draft.stock} units (safety threshold: ${draft.safety})
+
+BUSINESS:
+- Name: ${businessName || 'Your Business'}
+- Contact: ${businessContact || ''}`;
+  }
+
+  try {
+    const text = await window.claude.complete(prompt);
+    return text.trim();
+  } catch(e) {
+    console.error('Claude generation failed:', e);
+    // Fallback to a basic template
+    return `Hi ${draft.vendor},\n\nWe'd like to place a reorder for ${draft.product} (SKU: ${draft.sku}). Our current stock has dropped to ${draft.stock} units, below our safety threshold of ${draft.safety}.\n\nPlease confirm availability and estimated delivery for ${draft.qty} units at $${draft.unitCost}/unit (total $${total}).\n\nThanks,\n${businessName || 'Your Business'}`;
+  }
+}
+
+function StatusBadge({ status }) {
+  const labels = { critical:'Critical', low:'Low', ok:'Adequate', good:'Good' };
+  return <span className={`badge ${status}`}>{labels[status]}</span>;
+}
+
+function StockBar({ stock, safety, status }) {
+  if (stock === null || safety === null) return <span style={{color:'var(--fg-muted)',fontSize:'0.85rem'}}>—</span>;
+  const pct = Math.min(100, (stock / (safety * 2)) * 100);
+  return (
+    <div className="stock-bar-wrap">
+      <div className="stock-bar">
+        <div className="stock-fill" style={{ width: pct+'%', background: getStockColor(status) }}/>
+      </div>
+      <span className="stock-num" style={{ color: getStockColor(status) }}>{stock}</span>
+    </div>
+  );
+}
+
+function InventoryTable({ inventory, filter, onLog, extraColumns = [] }) {
+  const filtered = filter === 'all' ? inventory :
+    filter === 'alerts' ? inventory.filter(i => i.stock !== null && i.safety !== null && ['critical','low'].includes(getStatus(i.stock,i.safety))) :
+    inventory.filter(i => i.stock !== null && i.safety !== null && getStatus(i.stock,i.safety) === filter);
+
+  const fmtVal = (v) => v === null || v === undefined || v === '' ? <span style={{color:'var(--border)'}}>—</span> : String(v);
+  const prettyHeader = (k) => k.replace(/_/g,' ').replace(/\b\w/g, c => c.toUpperCase());
+
+  return (
+    <div style={{overflowX:'auto',width:'100%'}}>
+    <table className="inv-table" style={{minWidth:'100%'}}>
+      <thead>
+        <tr>
+          <th>Product</th>
+          <th>Category</th>
+          <th>Stock</th>
+          <th>Safety</th>
+          <th>Status</th>
+          <th>Vendor</th>
+          {extraColumns.map(col => <th key={col}>{prettyHeader(col)}</th>)}
+          <th style={{textAlign:'right'}}>Quick Log</th>
+        </tr>
+      </thead>
+      <tbody>
+        {filtered.map(item => {
+          const hasStock = item.stock !== null && item.safety !== null;
+          const status = hasStock ? getStatus(item.stock, item.safety) : null;
+          return (
+            <tr key={item.id}>
+              <td>
+                <div className="prod-name">{item.name || <span style={{color:'var(--fg-muted)'}}>—</span>}</div>
+                <div className="prod-sku">{item.sku || ''}</div>
+              </td>
+              <td style={{color:'var(--fg-muted)',fontSize:'0.8rem'}}>{fmtVal(item.category)}</td>
+              <td>{hasStock ? <StockBar stock={item.stock} safety={item.safety} status={status}/> : <span style={{color:'var(--border)'}}>—</span>}</td>
+              <td style={{color:'var(--fg-muted)',fontSize:'0.82rem'}}>{item.safety !== null ? `${item.safety} units` : <span style={{color:'var(--border)'}}>—</span>}</td>
+              <td>{status ? <StatusBadge status={status}/> : <span style={{color:'var(--border)',fontSize:'0.75rem'}}>—</span>}</td>
+              <td style={{fontSize:'0.8rem',color:'var(--fg-muted)'}}>{fmtVal(item.vendor)}</td>
+              {extraColumns.map(col => <td key={col} style={{fontSize:'0.8rem',color:'var(--fg-muted)'}}>{fmtVal(item.extra?.[col])}</td>)}
+              <td style={{textAlign:'right'}}>
+                <div style={{display:'inline-flex',gap:4}}>
+                  <button className="action-btn" style={{padding:'4px 8px',color:'var(--accent)',borderColor:'var(--accent-light)'}} onClick={()=>onLog && onLog(item,'in')} title="Log incoming stock">+ In</button>
+                  <button className="action-btn" style={{padding:'4px 8px',color:'var(--amber)',borderColor:'var(--amber-light)'}} onClick={()=>onLog && onLog(item,'out')} title="Log outgoing stock">− Out</button>
+                  <button className="action-btn" style={{padding:'4px 8px'}} onClick={()=>onLog && onLog(item,'use')} title="Log usage / consumption">Use</button>
+                </div>
+              </td>
+            </tr>
+          );
+        })}
+      </tbody>
+    </table>
+    </div>
+  );
+}
+
+function DraftCard({ draft, onApprove, onDismiss, onRegenerate }) {
+  const [editing, setEditing] = useState(false);
+  const [body, setBody] = useState(draft.body);
+
+  // Sync body when draft updates (e.g. AI finishes generating)
+  useEffect(() => { setBody(draft.body); }, [draft.body]);
+
+  if (draft.status === 'approved') return (
+    <div className="draft-card approved">
+      <div className="draft-vendor"><strong>{draft.vendor}</strong></div>
+      <div className="approved-label">✓ Sent to {draft.email}</div>
+    </div>
+  );
+  if (draft.status === 'dismissed') return null;
+
+  return (
+    <div className="draft-card">
+      <div className="faith-tag-inline">✦ {draft.loading ? 'Faith is writing…' : 'Faith drafted this'}</div>
+      <div className="draft-vendor">To: <strong>{draft.vendor}</strong> · {draft.email}</div>
+      <div className="draft-vendor" style={{marginBottom:'8px'}}>Re: {draft.product} — {draft.qty} units</div>
+      {draft.loading ? (
+        <div style={{padding:'10px 0',display:'flex',flexDirection:'column',gap:6}}>
+          <div style={{height:8,background:'var(--border)',borderRadius:4,width:'95%',animation:'shimmer 1.5s infinite'}}/>
+          <div style={{height:8,background:'var(--border)',borderRadius:4,width:'80%',animation:'shimmer 1.5s infinite'}}/>
+          <div style={{height:8,background:'var(--border)',borderRadius:4,width:'65%',animation:'shimmer 1.5s infinite'}}/>
+        </div>
+      ) : editing ? (
+        <textarea
+          style={{width:'100%',minHeight:'160px',fontSize:'0.78rem',border:'1px solid var(--border)',borderRadius:'6px',padding:'8px',fontFamily:'inherit',resize:'vertical',color:'var(--fg)',background:'var(--surface)',whiteSpace:'pre-wrap'}}
+          value={body}
+          onChange={e => setBody(e.target.value)}
+        />
+      ) : (
+        <div className="draft-body" style={{whiteSpace:'pre-wrap'}}>{body}</div>
+      )}
+      <div className="draft-actions">
+        <button className="btn-approve" disabled={draft.loading} onClick={() => onApprove(draft.id, body)} style={{opacity:draft.loading?0.5:1,cursor:draft.loading?'wait':'pointer'}}>
+          {editing ? 'Send Edited' : 'Approve & Send'}
+        </button>
+        <button className="btn-edit" disabled={draft.loading} onClick={() => setEditing(!editing)}>
+          {editing ? 'Cancel' : 'Edit'}
+        </button>
+        {!editing && <button className="btn-edit" disabled={draft.loading} onClick={() => onRegenerate(draft.id)} title="Regenerate">↻</button>}
+        <button className="btn-dismiss" onClick={() => onDismiss(draft.id)}>✕</button>
+      </div>
+    </div>
+  );
+}
+
+function FaithPanel({ drafts, onApprove, onDismiss, onRegenerate, onOpenSettings }) {
+  const pending = drafts.filter(d => d.status === 'pending').length;
+  return (
+    <div className="card faith-panel" style={{display:'flex',flexDirection:'column',maxHeight:'600px'}}>
+      <div className="faith-header" style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+        <div>
+          <div className="faith-title-row">
+            <div className="faith-dot"/>
+            <span className="faith-panel-title">Faith AI</span>
+          </div>
+          <div className="faith-panel-sub">
+            {pending > 0 ? `${pending} draft${pending>1?'s':''} awaiting your approval` : 'All drafts processed'}
+          </div>
+        </div>
+        <button onClick={onOpenSettings} title="Email & PO template settings" style={{background:'transparent',border:'1px solid var(--border)',color:'var(--fg-muted)',padding:'6px 10px',borderRadius:6,fontSize:'0.7rem',fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>⚙ Settings</button>
+      </div>
+      <div className="faith-scroll">
+        {drafts.length === 0 ? (
+          <div className="empty-state">No low-stock items detected.<br/>Faith is watching your inventory.</div>
+        ) : drafts.map(d => (
+          <DraftCard key={d.id} draft={d} onApprove={onApprove} onDismiss={onDismiss} onRegenerate={onRegenerate}/>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ── CSV PARSER ──
+function parseCSV(text) {
+  const lines = text.replace(/\r\n/g,'\n').split('\n').filter(l=>l.trim());
+  if (lines.length < 2) return [];
+  const parseLine = (line) => {
+    const out = []; let cur = ''; let inQuote = false;
+    for (let i=0; i<line.length; i++) {
+      const c = line[i];
+      if (c === '"' && line[i+1] === '"') { cur += '"'; i++; }
+      else if (c === '"') inQuote = !inQuote;
+      else if (c === ',' && !inQuote) { out.push(cur); cur = ''; }
+      else cur += c;
+    }
+    out.push(cur);
+    return out;
+  };
+  const headers = parseLine(lines[0]);
+  return lines.slice(1).map((line, idx) => {
+    const cells = parseLine(line);
+    const obj = { id: idx + 1 };
+    headers.forEach((h, i) => {
+      const key = String(h).toLowerCase().trim().replace(/\s+/g, '_');
+      obj[key] = cells[i] !== undefined ? cells[i].trim() : '';
+    });
+    return obj;
+  });
+}
+
+function AuthScreen({ onAuth }) {
+  const [mode, setMode] = useState('signin'); // 'signin' | 'signup' | 'reset' | 'check-email'
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [success, setSuccess] = useState(null);
+
+  const isConfigured = window.auth && !SUPABASE_URL_NOT_SET();
+
+  function SUPABASE_URL_NOT_SET() {
+    try { return !window.SUPABASE_URL_CONFIGURED; } catch(e) { return true; }
+  }
+
+  async function submit() {
+    setError(null); setSuccess(null);
+    if (!email.trim() || !/^[^@]+@[^@]+\.[^@]+$/.test(email)) { setError('Please enter a valid email'); return; }
+    if (mode !== 'reset' && (!password || password.length < 6)) { setError('Password must be at least 6 characters'); return; }
+    setLoading(true);
+    try {
+      if (mode === 'signup') {
+        const data = await window.auth.signUp(email.trim(), password);
+        if (data.user && !data.access_token) {
+          setMode('check-email');
+        } else {
+          onAuth(data.user);
+        }
+      } else if (mode === 'signin') {
+        const data = await window.auth.signIn(email.trim(), password);
+        onAuth(data.user);
+      } else if (mode === 'reset') {
+        await window.auth.resetPassword(email.trim());
+        setSuccess("Check your email for a reset link.");
+      }
+    } catch(e) {
+      setError(e.message || 'Something went wrong');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  // For dev / when Supabase isn't configured yet — let user skip
+  function skipAuth() {
+    onAuth({ id: 'demo', email: 'demo@faith.app' });
+  }
+
+  return (
+    <div style={{position:'fixed',inset:0,background:'var(--bg)',zIndex:9999,overflowY:'auto',display:'flex',alignItems:'center',justifyContent:'center',padding:'24px'}}>
+      <div style={{maxWidth:420,width:'100%'}}>
+
+        <div style={{display:'flex',alignItems:'center',justifyContent:'center',gap:8,marginBottom:32}}>
+          <span style={{color:'var(--accent)',fontSize:'1.4rem'}}>✦</span>
+          <span style={{fontWeight:800,fontSize:'1.3rem',letterSpacing:'-0.03em'}}>Faith</span>
+        </div>
+
+        <div style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:16,padding:32,boxShadow:'0 4px 24px oklch(0% 0 0 / 0.04)'}}>
+
+          {mode === 'check-email' ? (<>
+            <div style={{textAlign:'center'}}>
+              <div style={{fontSize:'2.5rem',marginBottom:14}}>✉️</div>
+              <h1 style={{fontSize:'1.3rem',fontWeight:800,letterSpacing:'-0.02em',marginBottom:8}}>Check your email</h1>
+              <p style={{fontSize:'0.88rem',color:'var(--fg-muted)',lineHeight:1.6,marginBottom:20}}>We sent a confirmation link to <strong>{email}</strong>. Click it to activate your account, then come back here and sign in.</p>
+              <button onClick={()=>{setMode('signin');setSuccess(null);setError(null);}} style={{background:'var(--fg)',color:'#fff',border:'none',padding:'11px 24px',borderRadius:8,fontWeight:600,fontSize:'0.88rem',cursor:'pointer',fontFamily:'inherit'}}>Back to sign in</button>
+            </div>
+          </>) : (<>
+            <h1 style={{fontSize:'1.4rem',fontWeight:800,letterSpacing:'-0.02em',marginBottom:6,textAlign:'center'}}>
+              {mode === 'signup' ? 'Create your account' : mode === 'reset' ? 'Reset password' : 'Welcome back'}
+            </h1>
+            <p style={{fontSize:'0.85rem',color:'var(--fg-muted)',textAlign:'center',marginBottom:24}}>
+              {mode === 'signup' ? 'Start your 14-day free trial. No credit card.' : mode === 'reset' ? "Enter your email and we'll send you a link" : 'Sign in to your inventory dashboard'}
+            </p>
+
+            <label style={{display:'block',fontSize:'0.78rem',fontWeight:600,marginBottom:6}}>Email</label>
+            <input type="email" value={email} onChange={e=>{setEmail(e.target.value);setError(null);}} placeholder="you@business.com" autoFocus
+              style={{width:'100%',padding:'12px 14px',borderRadius:8,border:'1.5px solid var(--border)',fontSize:'0.9rem',outline:'none',marginBottom:14,background:'var(--bg)',color:'var(--fg)',fontFamily:'inherit'}}
+              onKeyDown={e=>{if(e.key==='Enter')submit();}}/>
+
+            {mode !== 'reset' && (<>
+              <label style={{display:'block',fontSize:'0.78rem',fontWeight:600,marginBottom:6}}>Password</label>
+              <input type="password" value={password} onChange={e=>{setPassword(e.target.value);setError(null);}} placeholder="At least 6 characters"
+                style={{width:'100%',padding:'12px 14px',borderRadius:8,border:'1.5px solid var(--border)',fontSize:'0.9rem',outline:'none',marginBottom:14,background:'var(--bg)',color:'var(--fg)',fontFamily:'inherit'}}
+                onKeyDown={e=>{if(e.key==='Enter')submit();}}/>
+            </>)}
+
+            {error && <div style={{color:'var(--red)',fontSize:'0.8rem',padding:'8px 12px',background:'var(--red-light)',borderRadius:6,marginBottom:14,lineHeight:1.5}}>⚠ {error}</div>}
+            {success && <div style={{color:'var(--accent)',fontSize:'0.85rem',padding:'8px 12px',background:'var(--accent-light)',borderRadius:6,marginBottom:14,lineHeight:1.5}}>✓ {success}</div>}
+
+            <button onClick={submit} disabled={loading} style={{width:'100%',background:'var(--accent)',color:'#fff',border:'none',padding:'13px',borderRadius:8,fontWeight:700,fontSize:'0.9rem',cursor:loading?'wait':'pointer',fontFamily:'inherit',marginBottom:14,opacity:loading?0.6:1}}>
+              {loading ? '…' : mode === 'signup' ? 'Create account & start trial' : mode === 'reset' ? 'Send reset link' : 'Sign in →'}
+            </button>
+
+            <div style={{textAlign:'center',fontSize:'0.82rem',color:'var(--fg-muted)'}}>
+              {mode === 'signin' && <>
+                <a href="#" onClick={(e)=>{e.preventDefault();setMode('reset');setError(null);}} style={{color:'var(--accent)',textDecoration:'none'}}>Forgot password?</a>
+                <span> · </span>
+                Don't have an account? <a href="#" onClick={(e)=>{e.preventDefault();setMode('signup');setError(null);}} style={{color:'var(--accent)',textDecoration:'none',fontWeight:600}}>Sign up</a>
+              </>}
+              {mode === 'signup' && <>Already have an account? <a href="#" onClick={(e)=>{e.preventDefault();setMode('signin');setError(null);}} style={{color:'var(--accent)',textDecoration:'none',fontWeight:600}}>Sign in</a></>}
+              {mode === 'reset' && <a href="#" onClick={(e)=>{e.preventDefault();setMode('signin');setError(null);}} style={{color:'var(--accent)',textDecoration:'none'}}>← Back to sign in</a>}
+            </div>
+          </>)}
+        </div>
+
+        {/* Dev escape hatch — remove after Supabase is wired up */}
+        {SUPABASE_URL.includes('YOUR-PROJECT-ID') && (
+          <div style={{marginTop:20,padding:'14px 16px',background:'oklch(96% 0.04 75)',border:'1px solid oklch(85% 0.08 75)',borderRadius:10,fontSize:'0.78rem',color:'oklch(40% 0.12 65)',lineHeight:1.6}}>
+            <strong>⚙ Setup mode</strong><br/>
+            Auth isn't configured yet. Edit <code>faith-auth.js</code> with your Supabase credentials. <a href="#" onClick={(e)=>{e.preventDefault();skipAuth();}} style={{color:'oklch(35% 0.15 65)',fontWeight:700}}>Skip auth →</a> (for testing)
+          </div>
+        )}
+
+        <p style={{textAlign:'center',marginTop:20,fontSize:'0.75rem',color:'var(--fg-muted)'}}>
+          <a href="index.html" style={{color:'var(--fg-muted)',textDecoration:'none'}}>← Back to Faith homepage</a>
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function ConnectScreen({ onConnect }) {
+  const [source, setSource] = useState(null); // null | 'sheets' | 'csv' | other
+  const [url, setUrl] = useState('');
+  const [testing, setTesting] = useState(false);
+  const [error, setError] = useState(null);
+  const [step, setStep] = useState(1);
+  const fileRef = React.useRef(null);
+
+  const sources = [
+    { id:'sheets',  name:'Google Sheets',     desc:'Live sync \u2014 updates in real time',                 icon:'📊' },
+    { id:'csv',     name:'Excel / CSV File',  desc:'Works with QuickBooks, Shopify, Square & any other system', icon:'📄' },
+  ];
+
+  async function handleConnectSheets() {
+    if (!url.trim()) { setError('Please paste your Apps Script URL'); return; }
+    if (!url.includes('script.google.com')) { setError("That doesn't look like an Apps Script URL"); return; }
+    setTesting(true);
+    setError(null);
+    try {
+      const res = await fetch(url);
+      const data = await res.json();
+      if (!data.inventory) throw new Error('Sheet not returning inventory data. Check your column headers.');
+      if (data.inventory.length === 0) throw new Error('Your sheet is empty. Add at least one product row.');
+      onConnect({ type:'sheets', url:url.trim() });
+    } catch(e) {
+      setError(e.message || 'Could not connect. Make sure the script is deployed with "Anyone" access.');
+    } finally {
+      setTesting(false);
+    }
+  }
+
+  function handleCSVUpload(file) {
+    if (!file) return;
+    setTesting(true);
+    setError(null);
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      try {
+        const text = ev.target.result;
+        const rows = parseCSV(text);
+        if (rows.length === 0) throw new Error('Could not find any rows in that file');
+        onConnect({ type:'csv', data: rows, filename: file.name });
+      } catch(e) {
+        setError(e.message || 'Could not parse that file. Make sure it\'s a valid CSV.');
+        setTesting(false);
+      }
+    };
+    reader.onerror = () => { setError('Could not read file'); setTesting(false); };
+    reader.readAsText(file);
+  }
+
+  return (
+    <div style={{position:'fixed',inset:0,background:'var(--bg)',zIndex:9999,overflowY:'auto'}}>
+      <div style={{maxWidth:720,margin:'0 auto',padding:'48px 24px 80px'}}>
+
+        {/* logo */}
+        <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:32}}>
+          <span style={{color:'var(--accent)',fontSize:'1.4rem'}}>✦</span>
+          <span style={{fontWeight:800,fontSize:'1.2rem',letterSpacing:'-0.03em'}}>Faith</span>
+        </div>
+
+        {/* Step 1: source picker */}
+        {!source && (<>
+          <div style={{fontSize:'0.7rem',fontWeight:700,textTransform:'uppercase',letterSpacing:'0.1em',color:'var(--accent)',marginBottom:12}}>✦ Setup</div>
+          <h1 style={{fontSize:'2rem',fontWeight:800,letterSpacing:'-0.03em',marginBottom:8,color:'var(--fg)'}}>How do you track inventory?</h1>
+          <p style={{fontSize:'0.95rem',color:'var(--fg-muted)',marginBottom:32,lineHeight:1.6}}>Connect Faith to your existing system. We support live sync from Google Sheets and one-time uploads from any tool that exports CSV/Excel.</p>
+
+          <div style={{display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:12}}>
+            {sources.map(s => (
+              <button
+                key={s.id}
+                onClick={() => setSource(s.id)}
+                style={{
+                  background:'var(--surface)',
+                  border:`1.5px solid var(--border)`,
+                  borderRadius:12,
+                  padding:'22px 20px',
+                  cursor:'pointer',
+                  textAlign:'left',
+                  fontFamily:'inherit',
+                  transition:'all 0.15s'
+                }}
+                onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--accent)'}
+                onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--border)'}
+              >
+                <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:8}}>
+                  <span style={{fontSize:'1.5rem'}}>{s.icon}</span>
+                  <span style={{fontWeight:700,fontSize:'1rem',color:'var(--fg)'}}>{s.name}</span>
+                </div>
+                <div style={{fontSize:'0.82rem',color:'var(--fg-muted)',lineHeight:1.5}}>{s.desc}</div>
+              </button>
+            ))}
+          </div>
+
+          <div style={{marginTop:24,padding:'16px 20px',background:'var(--surface)',border:'1px solid var(--border)',borderRadius:10,fontSize:'0.82rem',color:'var(--fg-muted)',lineHeight:1.6}}>
+            <strong style={{color:'var(--fg)'}}>Using another system?</strong> Direct integrations for Shopify, QuickBooks, Square, NetSuite and WooCommerce are coming. For now, export your data as CSV from those tools and choose <em>Excel / CSV File</em> above.
+          </div>
+
+          <a href="index.html" style={{display:'inline-block',marginTop:32,color:'var(--fg-muted)',textDecoration:'none',fontSize:'0.85rem'}}>← Back to home</a>
+        </>)}
+
+        {/* Step 2: Sheets setup */}
+        {source === 'sheets' && (<>
+          <div style={{fontSize:'0.7rem',fontWeight:700,textTransform:'uppercase',letterSpacing:'0.1em',color:'var(--accent)',marginBottom:12}}>✦ Google Sheets · Step {step} of 2</div>
+          <h1 style={{fontSize:'2rem',fontWeight:800,letterSpacing:'-0.03em',marginBottom:8,color:'var(--fg)'}}>
+            {step === 1 ? 'Connect your Google Sheet' : 'Paste your Web App URL'}
+          </h1>
+          <p style={{fontSize:'0.95rem',color:'var(--fg-muted)',marginBottom:32,lineHeight:1.6}}>
+            {step === 1 ? 'Faith reads stock levels directly from your sheet. Setup takes about 3 minutes.' : 'Almost there. Paste the URL from your Apps Script deployment below.'}
+          </p>
+
+          {step === 1 && (
+            <div style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:12,padding:24,marginBottom:24}}>
+              <h3 style={{fontSize:'0.95rem',fontWeight:700,marginBottom:16}}>1. Prepare your sheet</h3>
+              <p style={{fontSize:'0.85rem',color:'var(--fg-muted)',marginBottom:12,lineHeight:1.6}}>Add these column headers in row 1 (names are flexible):</p>
+              <div style={{display:'flex',flexWrap:'wrap',gap:6,marginBottom:20}}>
+                {['Product','SKU','Stock','Safety','Vendor','Vendor Email','Reorder Qty','Unit Cost'].map(c=>(
+                  <span key={c} style={{background:'var(--bg)',border:'1px solid var(--border)',padding:'4px 10px',borderRadius:6,fontSize:'0.78rem',fontFamily:'monospace',fontWeight:600}}>{c}</span>
+                ))}
+              </div>
+
+              <h3 style={{fontSize:'0.95rem',fontWeight:700,marginBottom:16,marginTop:24}}>2. Add the Faith script</h3>
+              <p style={{fontSize:'0.85rem',color:'var(--fg-muted)',marginBottom:12,lineHeight:1.6}}>In your sheet → <strong>Extensions → Apps Script</strong>. Paste this code:</p>
+              <pre style={{background:'var(--bg)',border:'1px solid var(--border)',borderRadius:8,padding:16,fontSize:'0.72rem',overflow:'auto',lineHeight:1.5,color:'var(--fg)',fontFamily:'monospace',marginBottom:12}}>
+{`function doGet(e) {
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+  const data = sheet.getDataRange().getValues();
+  const headers = data[0];
+  const rows = data.slice(1).map((row, idx) => {
+    const obj = { id: idx + 1 };
+    headers.forEach((h, i) => {
+      const key = String(h).toLowerCase().replace(/\\s+/g, '_');
+      obj[key] = row[i];
+    });
+    return obj;
+  });
+  return ContentService
+    .createTextOutput(JSON.stringify({ inventory: rows }))
+    .setMimeType(ContentService.MimeType.JSON);
+}`}
+              </pre>
+
+              <h3 style={{fontSize:'0.95rem',fontWeight:700,marginBottom:16,marginTop:24}}>3. Deploy as Web App</h3>
+              <ol style={{paddingLeft:20,marginBottom:0}}>
+                <li style={{fontSize:'0.85rem',color:'var(--fg-muted)',marginBottom:8,lineHeight:1.6}}>Click <strong>Deploy → New deployment</strong></li>
+                <li style={{fontSize:'0.85rem',color:'var(--fg-muted)',marginBottom:8,lineHeight:1.6}}>Type: <strong>Web app</strong></li>
+                <li style={{fontSize:'0.85rem',color:'var(--fg-muted)',marginBottom:8,lineHeight:1.6}}>Execute as: <strong>Me</strong> · Access: <strong>Anyone</strong></li>
+                <li style={{fontSize:'0.85rem',color:'var(--fg-muted)',marginBottom:0,lineHeight:1.6}}>Authorize → Copy the Web App URL</li>
+              </ol>
+            </div>
+          )}
+
+          {step === 2 && (
+            <div style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:12,padding:24,marginBottom:24}}>
+              <label style={{display:'block',fontSize:'0.78rem',fontWeight:700,marginBottom:8,color:'var(--fg)',textTransform:'uppercase',letterSpacing:'0.05em'}}>Apps Script Web App URL</label>
+              <input type="url" value={url} onChange={e=>{setUrl(e.target.value); setError(null);}} placeholder="https://script.google.com/macros/s/AKfyc.../exec"
+                style={{width:'100%',padding:'13px 16px',borderRadius:8,border:`1.5px solid ${error?'var(--red)':'var(--border)'}`,fontSize:'0.85rem',fontFamily:'monospace',outline:'none',background:'var(--bg)',color:'var(--fg)'}}/>
+              {error && <div style={{color:'var(--red)',fontSize:'0.8rem',marginTop:10,lineHeight:1.5}}>⚠ {error}</div>}
+              <button onClick={handleConnectSheets} disabled={testing}
+                style={{marginTop:16,background:'var(--accent)',color:'#fff',border:'none',padding:'13px 24px',borderRadius:8,fontWeight:700,fontSize:'0.88rem',cursor:testing?'wait':'pointer',width:'100%',fontFamily:'inherit'}}>
+                {testing ? 'Testing connection…' : 'Connect & Open Dashboard →'}
+              </button>
+            </div>
+          )}
+
+          <div style={{display:'flex',justifyContent:'space-between',marginTop:20}}>
+            <button onClick={()=>{setSource(null);setStep(1);setError(null);}} style={{background:'transparent',color:'var(--fg-muted)',border:'none',fontSize:'0.85rem',cursor:'pointer',fontFamily:'inherit',padding:0}}>← Choose another source</button>
+            {step === 1 && <button onClick={()=>setStep(2)} style={{background:'var(--fg)',color:'#fff',border:'none',padding:'11px 24px',borderRadius:8,fontWeight:600,fontSize:'0.85rem',cursor:'pointer',fontFamily:'inherit'}}>I've done this →</button>}
+            {step === 2 && <button onClick={()=>setStep(1)} style={{background:'transparent',color:'var(--fg-muted)',border:'1px solid var(--border)',padding:'10px 18px',borderRadius:8,fontSize:'0.85rem',cursor:'pointer',fontFamily:'inherit'}}>← Instructions</button>}
+          </div>
+        </>)}
+
+        {/* Step 2: CSV setup */}
+        {source === 'csv' && (<>
+          <div style={{fontSize:'0.7rem',fontWeight:700,textTransform:'uppercase',letterSpacing:'0.1em',color:'var(--accent)',marginBottom:12}}>✦ Excel / CSV Upload</div>
+          <h1 style={{fontSize:'2rem',fontWeight:800,letterSpacing:'-0.03em',marginBottom:8,color:'var(--fg)'}}>Upload your inventory file</h1>
+          <p style={{fontSize:'0.95rem',color:'var(--fg-muted)',marginBottom:32,lineHeight:1.6}}>Export your inventory from any system as a CSV, then drop it here. You can re-upload anytime to refresh.</p>
+
+          <div style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:12,padding:24,marginBottom:24}}>
+            <h3 style={{fontSize:'0.95rem',fontWeight:700,marginBottom:12}}>How to export your data as CSV</h3>
+            <ul style={{paddingLeft:20,marginBottom:20,marginTop:0}}>
+              <li style={{fontSize:'0.82rem',color:'var(--fg-muted)',marginBottom:6,lineHeight:1.6}}><strong>Excel:</strong> File → Save As → CSV (Comma delimited)</li>
+              <li style={{fontSize:'0.82rem',color:'var(--fg-muted)',marginBottom:6,lineHeight:1.6}}><strong>QuickBooks:</strong> Reports → Inventory Valuation → Export → CSV</li>
+              <li style={{fontSize:'0.82rem',color:'var(--fg-muted)',marginBottom:6,lineHeight:1.6}}><strong>Shopify:</strong> Products → Export → CSV for all products</li>
+              <li style={{fontSize:'0.82rem',color:'var(--fg-muted)',marginBottom:6,lineHeight:1.6}}><strong>Square:</strong> Items → Export Library → Excel/CSV</li>
+              <li style={{fontSize:'0.82rem',color:'var(--fg-muted)',marginBottom:0,lineHeight:1.6}}><strong>Any other system:</strong> Look for "Export" or "Download CSV"</li>
+            </ul>
+
+            <p style={{fontSize:'0.82rem',color:'var(--fg-muted)',marginBottom:14,lineHeight:1.6}}>Make sure your file has columns like: <strong>Product, SKU, Stock, Safety, Vendor, Vendor Email, Reorder Qty</strong></p>
+
+            <div
+              onClick={()=>fileRef.current?.click()}
+              onDragOver={e=>{e.preventDefault();e.currentTarget.style.borderColor='var(--accent)';e.currentTarget.style.background='oklch(95% 0.04 155)';}}
+              onDragLeave={e=>{e.currentTarget.style.borderColor='var(--border)';e.currentTarget.style.background='var(--bg)';}}
+              onDrop={e=>{e.preventDefault();e.currentTarget.style.borderColor='var(--border)';e.currentTarget.style.background='var(--bg)';handleCSVUpload(e.dataTransfer.files[0]);}}
+              style={{border:'2px dashed var(--border)',borderRadius:12,padding:'40px 20px',textAlign:'center',cursor:'pointer',background:'var(--bg)',transition:'all 0.15s'}}
+            >
+              <div style={{fontSize:'2rem',marginBottom:10,opacity:0.5}}>📁</div>
+              <div style={{fontSize:'0.92rem',fontWeight:700,marginBottom:6}}>Drop your CSV file here</div>
+              <div style={{fontSize:'0.8rem',color:'var(--fg-muted)'}}>or click to browse</div>
+              <input ref={fileRef} type="file" accept=".csv,.tsv,text/csv" onChange={e=>handleCSVUpload(e.target.files[0])} style={{display:'none'}}/>
+            </div>
+
+            {testing && <div style={{textAlign:'center',marginTop:14,fontSize:'0.85rem',color:'var(--fg-muted)'}}>Reading your file…</div>}
+            {error && <div style={{color:'var(--red)',fontSize:'0.85rem',marginTop:14,padding:'10px 14px',background:'var(--red-light)',borderRadius:8,lineHeight:1.5}}>⚠ {error}</div>}
+          </div>
+
+          <button onClick={()=>{setSource(null);setError(null);}} style={{background:'transparent',color:'var(--fg-muted)',border:'none',fontSize:'0.85rem',cursor:'pointer',fontFamily:'inherit',padding:0}}>← Choose another source</button>
+        </>)}
+
+      </div>
+    </div>
+  );
+}
+
+function App() {
+  const [authedUser, setAuthedUser] = useState(() => window.auth?.user() || null);
+  const [tweaks, setTweaks] = useState(() => {
+    try { return {...TWEAK_DEFAULTS, ...JSON.parse(localStorage.getItem('faith_tweaks')||'{}')}; }
+    catch(e) { return TWEAK_DEFAULTS; }
+  });
+  const [showTweaks, setShowTweaks] = useState(false);
+  const [filter, setFilter] = useState('all');
+  const [activeNav, setActiveNav] = useState('dashboard');
+  const [modal, setModal] = useState(null); // null | 'skus' | 'alerts' | 'critical' | 'drafts'
+  const [connection, setConnection] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('faith_connection') || 'null'); }
+    catch(e) { return null; }
+  });
+  const [settings, setSettings] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('faith_settings') || '{}'); }
+    catch(e) { return {}; }
+  });
+  const [showSettings, setShowSettings] = useState(false);
+  const [inventory, setInventory] = useState(initialInventory);
+  const [drafts, setDrafts] = useState([]);
+  const [syncing, setSyncing] = useState(false);
+  const [loadError, setLoadError] = useState(null);
+
+  function saveSettings(next) {
+    setSettings(next);
+    localStorage.setItem('faith_settings', JSON.stringify(next));
+    // Re-generate drafts so they reflect new business info / PO template
+    if (drafts.length > 0) {
+      const pending = drafts.filter(d => d.status === 'pending').map(d => ({...d, loading: true}));
+      setDrafts(d => d.map(x => x.status === 'pending' ? {...x, loading: true} : x));
+      Promise.allSettled(
+        pending.map(d => generateDraftBody(d, next).then(body => ({id: d.id, body})))
+      ).then(results => {
+        setDrafts(curr => curr.map(d => {
+          const r = results.find(rr => rr.status === 'fulfilled' && rr.value.id === d.id);
+          return r ? {...d, body: r.value.body, loading: false} : d;
+        }));
+      });
+    }
+  }
+
+  // Generate AI draft for a specific draft entry
+  async function generateDraft(draftId) {
+    const draft = drafts.find(d => d.id === draftId);
+    if (!draft) return;
+    setDrafts(d => d.map(x => x.id === draftId ? {...x, loading: true} : x));
+    const body = await generateDraftBody(draft, settings);
+    setDrafts(d => d.map(x => x.id === draftId ? {...x, body, loading: false} : x));
+  }
+
+  // Generate all drafts in parallel after inventory loads
+  async function generateAllDrafts(draftsToGenerate) {
+    const results = await Promise.allSettled(
+      draftsToGenerate.map(d => generateDraftBody(d, settings).then(body => ({id: d.id, body})))
+    );
+    setDrafts(curr => curr.map(d => {
+      const r = results.find(rr => rr.status === 'fulfilled' && rr.value.id === d.id);
+      return r ? {...d, body: r.value.body, loading: false} : d;
+    }));
+  }
+
+  async function fetchInventory() {
+    if (!connection) return;
+    setSyncing(true);
+    try {
+      let items = [];
+      if (connection.type === 'sheets') {
+        const res = await fetch(connection.url);
+        const data = await res.json();
+        if (!data.inventory || data.inventory.length === 0) throw new Error('No data found in sheet');
+        items = data.inventory.map(normalizeRow).filter(item => !isEmptyRow(item));
+      } else if (connection.type === 'csv') {
+        // CSV data is stored in connection.data
+        items = connection.data.map(normalizeRow).filter(item => !isEmptyRow(item));
+      }
+      setInventory(items);
+      const newDrafts = draftsFromInventory(items);
+      setDrafts(newDrafts);
+      setLoadError(null);
+      // Kick off Claude generation in the background
+      if (newDrafts.length > 0) {
+        generateAllDrafts(newDrafts);
+      }
+    } catch(e) {
+      console.error('Fetch failed:', e);
+      setLoadError(e.message || 'Could not load data');
+    } finally {
+      setSyncing(false);
+    }
+  }
+
+  useEffect(() => { if (connection) fetchInventory(); }, [connection]);
+
+  function handleConnect(conn) {
+    localStorage.setItem('faith_connection', JSON.stringify(conn));
+    setConnection(conn);
+  }
+
+  function handleDisconnect() {
+    if (confirm('Disconnect this source? You can connect a different one after.')) {
+      localStorage.removeItem('faith_connection');
+      setConnection(null);
+      setInventory(initialInventory);
+      setDrafts([]);
+    }
+  }
+
+  useEffect(() => {
+    localStorage.setItem('faith_tweaks', JSON.stringify(tweaks));
+  }, [tweaks]);
+
+  useEffect(() => {
+    window.addEventListener('message', (e) => {
+      if (e.data?.type === '__activate_edit_mode') setShowTweaks(true);
+      if (e.data?.type === '__deactivate_edit_mode') setShowTweaks(false);
+    });
+    window.parent.postMessage({type:'__edit_mode_available'}, '*');
+  }, []);
+
+  function updateTweak(key, val) {
+    const next = {...tweaks, [key]: val};
+    setTweaks(next);
+    window.parent.postMessage({type:'__edit_mode_set_keys', edits: next}, '*');
+  }
+
+  async function handleApprove(id, editedBody) {
+    const draft = drafts.find(d => d.id === id);
+    if (!draft) return;
+    const body = editedBody || draft.body;
+    const hasTemplate = settings.poTemplate && settings.poTemplate.trim().length > 20;
+    const subject = `Reorder: ${draft.product} (${draft.sku})`;
+
+    // ── Allocate the next PO number for this order ──
+    const poNumber = nextPoNumber();
+
+    // Use vendor override email if user updated it
+    const recipientEmail = (vendorOverrides[draft.vendor]?.email) || draft.email;
+
+    // ── Generate PO PDF if template is set ──
+    let pdfBase64 = null;
+    let pdfFilename = null;
+    if (hasTemplate) {
+      try {
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF({ unit: 'pt', format: 'letter' });
+        const margin = 48;
+        const pageWidth = doc.internal.pageSize.getWidth();
+        const maxWidth = pageWidth - margin * 2;
+
+        // Header bar
+        doc.setFillColor(61, 122, 92);
+        doc.rect(0, 0, pageWidth, 56, 'F');
+        doc.setTextColor(255, 255, 255);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(18);
+        doc.text('PURCHASE ORDER', margin, 36);
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(9);
+        doc.text(`${poNumber}  ·  ${new Date().toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'})}`, pageWidth - margin, 36, { align: 'right' });
+
+        // Body
+        doc.setTextColor(26, 26, 24);
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(11);
+        const lines = doc.splitTextToSize(body, maxWidth);
+        let y = 96;
+        lines.forEach(line => {
+          if (y > doc.internal.pageSize.getHeight() - margin) { doc.addPage(); y = margin; }
+          doc.text(line, margin, y);
+          y += 16;
+        });
+
+        // Footer
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(8);
+        doc.setTextColor(107, 106, 101);
+        doc.text(`Generated by Faith AI · ${settings.businessName || 'Your Business'}`, margin, doc.internal.pageSize.getHeight() - 24);
+
+        pdfFilename = `${poNumber}-${draft.sku || draft.id}.pdf`;
+        pdfBase64 = doc.output('datauristring').split(',')[1];
+      } catch(e) {
+        console.error('PDF generation failed:', e);
+      }
+    }
+
+    // ── Send via Faith's shared backend (auto-deployed by the SaaS owner — no per-customer setup) ──
+    try {
+      // No email connected? Skip backend, fall back to mailto.
+      if (!settings.smtpUser || !settings.smtpPass) throw new Error('no-email-connected');
+
+      const emailBody = hasTemplate
+        ? `Hi ${draft.vendor},\n\nPlease find our purchase order for ${draft.product} attached.\n\n${body.substring(0, 300)}${body.length > 300 ? '...' : ''}\n\n— ${settings.businessName || 'Sent via Faith'}`
+        : body;
+
+      const res = await fetch(`${FAITH_API}/api/send`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          to: recipientEmail,
+          subject,
+          body: emailBody,
+          attachmentBase64: pdfBase64,
+          attachmentName: pdfFilename,
+          fromName: settings.businessName || settings.smtpUser,
+          replyTo: settings.businessContact || settings.smtpUser || undefined,
+          smtpHost: settings.smtpHost,
+          smtpPort: settings.smtpPort,
+          smtpUser: settings.smtpUser,
+          smtpPass: settings.smtpPass,
+        }),
+      });
+      if (!res.ok) throw new Error(`Server returned ${res.status}`);
+      const data = await res.json();
+      if (!data.ok) throw new Error(data.error || 'Send failed');
+
+      setDrafts(d => d.map(x => x.id===id ? {...x, status:'approved', body} : x));
+      logActivity({
+        type: 'order', itemId: id, itemName: draft.product, qty: draft.qty, vendor: draft.vendor, poNumber,
+        note: hasTemplate ? `✓ Sent to ${recipientEmail} with PO PDF (${poNumber})` : `✓ Sent to ${recipientEmail} (${poNumber})`,
+      });
+      return;
+    } catch (e) {
+      console.warn('Faith backend unreachable, falling back to email client:', e);
+    }
+
+    // ── Fallback: open user's email client (mailto) ──
+    if (pdfBase64) {
+      // Download PDF so user can attach manually
+      const link = document.createElement('a');
+      link.href = `data:application/pdf;base64,${pdfBase64}`;
+      link.download = pdfFilename;
+      link.click();
+      setTimeout(() => alert(`✓ PO downloaded as "${pdfFilename}"\n\nYour email client will open next — drag the downloaded PDF into the email to attach it before sending.\n\n(To skip this step, set up the Email Server in Settings — it will auto-send with attachment.)`), 100);
+    }
+
+    const mailtoBody = encodeURIComponent(
+      hasTemplate
+        ? `Hi ${draft.vendor},\n\nPlease find our purchase order for ${draft.product} attached.\n\n— ${settings.businessName || ''}`
+        : body
+    );
+    setTimeout(() => window.open(`mailto:${recipientEmail}?subject=${encodeURIComponent(subject)}&body=${mailtoBody}`, '_blank'), pdfBase64 ? 800 : 0);
+
+    setDrafts(d => d.map(x => x.id===id ? {...x, status:'approved', body} : x));
+    logActivity({
+      type: 'order',
+      itemId: id,
+      itemName: draft.product,
+      qty: draft.qty,
+      vendor: draft.vendor,
+      poNumber,
+      note: hasTemplate ? `PO PDF (${poNumber}) downloaded · email client opened for ${draft.vendor}` : `Email client opened for ${draft.vendor} (${poNumber})`,
+    });
+  }
+  function handleDismiss(id) {
+    setDrafts(d => d.map(x => x.id===id ? {...x, status:'dismissed'} : x));
+  }
+
+  // ── ACTIVITY LOG (incoming, outgoing, usage, orders) ──
+  const [activities, setActivities] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('faith_activities') || '[]'); }
+    catch(e) { return []; }
+  });
+  const [activityModal, setActivityModal] = useState(null); // null | {item, type}
+  const [showAddProduct, setShowAddProduct] = useState(false);
+  const [localProducts, setLocalProducts] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('faith_local_products') || '[]'); }
+    catch(e) { return []; }
+  });
+  function addLocalProduct(p) {
+    const next = [...localProducts, { ...p, id: 'local-' + Date.now(), local: true }];
+    setLocalProducts(next);
+    localStorage.setItem('faith_local_products', JSON.stringify(next));
+  }
+
+  // Vendor overrides — edit email/name/contact for vendors that came from sheet
+  const [vendorOverrides, setVendorOverrides] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('faith_vendor_overrides') || '{}'); }
+    catch(e) { return {}; }
+  });
+  function saveVendorOverride(vendorName, fields) {
+    const next = { ...vendorOverrides, [vendorName]: { ...vendorOverrides[vendorName], ...fields } };
+    setVendorOverrides(next);
+    localStorage.setItem('faith_vendor_overrides', JSON.stringify(next));
+  }
+  const [editingVendor, setEditingVendor] = useState(null);
+  const [showPoSettings, setShowPoSettings] = useState(false);
+
+  // PO numbering — sequential, editable, persistent
+  const [poConfig, setPoConfig] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('faith_po_config') || '{"prefix":"PO-","nextNumber":1001,"padding":4}'); }
+    catch(e) { return { prefix:'PO-', nextNumber:1001, padding:4 }; }
+  });
+  function formatPo(num, cfg = poConfig) {
+    return `${cfg.prefix}${String(num).padStart(cfg.padding || 0, '0')}`;
+  }
+  function nextPoNumber() {
+    const num = poConfig.nextNumber;
+    const next = { ...poConfig, nextNumber: num + 1 };
+    setPoConfig(next);
+    localStorage.setItem('faith_po_config', JSON.stringify(next));
+    return formatPo(num, next);
+  }
+  function updatePoConfig(updates) {
+    const next = { ...poConfig, ...updates };
+    setPoConfig(next);
+    localStorage.setItem('faith_po_config', JSON.stringify(next));
+  }
+
+  function logActivity(a) {
+    const entry = { id: Date.now() + Math.random(), timestamp: new Date().toISOString(), ...a };
+    setActivities(curr => {
+      const next = [entry, ...curr].slice(0, 500);
+      localStorage.setItem('faith_activities', JSON.stringify(next));
+      return next;
+    });
+  }
+
+  // Effective stock = sheet_stock + sum(in) - sum(out) - sum(use)
+  function effectiveStock(item) {
+    const base = Number(item.stock || 0);
+    const adj = activities
+      .filter(a => a.itemId === item.id && ['in','out','use','adjust'].includes(a.type))
+      .reduce((sum, a) => {
+        if (a.type === 'in')     return sum + Number(a.qty || 0);
+        if (a.type === 'out')    return sum - Number(a.qty || 0);
+        if (a.type === 'use')    return sum - Number(a.qty || 0);
+        if (a.type === 'adjust') return sum + Number(a.qty || 0);
+        return sum;
+      }, 0);
+    return base + adj;
+  }
+
+  // LIVE inventory — merges sheet data + locally-added products, applies activity log adjustments
+  const liveInventory = [...inventory, ...localProducts].map(i => ({ ...i, stock: effectiveStock(i) }));
+
+  // Dynamic columns from the sheet — anything beyond the known fields shows as its own table column
+  const extraColumns = (() => {
+    const cols = new Set();
+    inventory.forEach(i => { if (i.extra) Object.keys(i.extra).forEach(k => cols.add(k)); });
+    return Array.from(cols);
+  })();
+
+  // Re-generate drafts when live stock crosses thresholds (debounced via JSON compare)
+  useEffect(() => {
+    if (!liveInventory.length || liveInventory[0].name === 'Loading from Google Sheets…') return;
+    const newDrafts = draftsFromInventory(liveInventory);
+    // Only update if the set of products needing reorder has changed
+    const currentIds = drafts.map(d => d.id).sort().join(',');
+    const nextIds = newDrafts.map(d => d.id).sort().join(',');
+    if (currentIds !== nextIds) {
+      // Preserve approved/dismissed drafts; only add new ones
+      const existing = new Map(drafts.map(d => [d.id, d]));
+      const merged = newDrafts.map(d => existing.get(d.id) || d);
+      setDrafts(merged);
+      const toGen = merged.filter(d => d.loading && d.status === 'pending');
+      if (toGen.length > 0) generateAllDrafts(toGen);
+    }
+  }, [JSON.stringify(activities), inventory.length]);
+
+  function handleSync() { fetchInventory(); }
+
+  // Show connect screen if no source is set up yet
+  if (!authedUser) {
+    return <AuthScreen onAuth={(u)=>setAuthedUser(u)}/>;
+  }
+  if (!connection) {
+    return <ConnectScreen onConnect={handleConnect}/>;
+  }
+
+  const alerts = liveInventory.filter(i => ['critical','low'].includes(getStatus(i.stock,i.safety)));
+  const critical = liveInventory.filter(i => getStatus(i.stock,i.safety) === 'critical');
+  const pendingDrafts = drafts.filter(d => d.status === 'pending').length;
+
+  const pageTitles = { dashboard:'Inventory Dashboard', inventory:'All Inventory', activity:'Activity Log', orders:'Orders', vendors:'Vendors' };
+
+  // Vendors derived from your inventory sheet — grouped by vendor name, with edit overrides applied
+  const vendors = (() => {
+    const map = new Map();
+    liveInventory.forEach(item => {
+      if (!item.vendor) return;
+      const key = item.vendor;
+      if (!map.has(key)) {
+        const ov = vendorOverrides[key] || {};
+        map.set(key, {
+          name: ov.name || item.vendor,
+          originalName: item.vendor,
+          email: ov.email || item.vendorEmail || '',
+          contact: ov.contact || '',
+          phone: ov.phone || '',
+          notes: ov.notes || '',
+          items: 0,
+          lowItems: 0,
+          status: 'active',
+        });
+      }
+      const v = map.get(key);
+      v.items += 1;
+      if (['critical','low'].includes(getStatus(item.stock, item.safety))) v.lowItems += 1;
+    });
+    // Also include vendors that exist only as overrides (added manually)
+    Object.entries(vendorOverrides).forEach(([key, ov]) => {
+      if (!map.has(key) && ov.name) {
+        map.set(key, { name: ov.name, originalName: key, email: ov.email || '', contact: ov.contact || '', phone: ov.phone || '', notes: ov.notes || '', items: 0, lowItems: 0, status: 'active' });
+      }
+    });
+    return Array.from(map.values()).map((v, i) => ({ ...v, id: i + 1 }));
+  })();
+
+  // Orders derived from approved drafts + activity log
+  const orders = activities
+    .filter(a => a.type === 'order')
+    .map(a => ({
+      id: a.poNumber || ('ORD-' + String(a.id).slice(-6)),
+      vendor: a.vendor || '',
+      product: a.itemName,
+      qty: a.qty,
+      total: '',
+      date: new Date(a.timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+      status: 'sent',
+    }));
+
+  function InventoryPage() {
+    return (
+      <div className="content">
+        <div className="two-col">
+          <div className="card">
+            <div className="card-header">
+              <div><div className="card-title">All Products</div><div className="card-sub">{connection?.type === 'sheets' ? 'Synced live from your Google Sheet' : connection?.type === 'csv' ? `Uploaded \${connection?.filename || 'CSV file'}` : ''}</div></div>
+              <div className="filter-tabs">
+                {[['all','All'],['alerts','Alerts'],['critical','Critical'],['good','Good']].map(([k,l]) => (
+                  <button key={k} className={`filter-tab ${filter===k?'active':''}`} onClick={()=>setFilter(k)}>{l}</button>
+                ))}
+              </div>
+            </div>
+            <InventoryTable inventory={liveInventory} filter={filter} onLog={(item,type)=>setActivityModal({item,type})} extraColumns={extraColumns}/>
+          </div>
+          <FaithPanel drafts={drafts} onApprove={handleApprove} onDismiss={handleDismiss} onRegenerate={generateDraft} onOpenSettings={()=>setShowSettings(true)}/>
+        </div>
+      </div>
+    );
+  }
+
+  function OrdersPage() {
+    const statusColors = { pending:{bg:'var(--amber-light)',color:'var(--amber)'}, sent:{bg:'var(--accent-light)',color:'var(--accent)'}, delivered:{bg:'oklch(94% 0.005 260)',color:'var(--fg-muted)'} };
+    return (
+      <div className="content">
+        <div className="stat-row" style={{gridTemplateColumns:'repeat(3,1fr)'}}>
+          <div className="stat-card"><div className="stat-label">Total Orders</div><div className="stat-val">{orders.length}</div><div className="stat-sub">All time</div></div>
+          <div className="stat-card alert-card"><div className="stat-label">Pending</div><div className="stat-val">{orders.filter(o=>o.status==='pending').length}</div><div className="stat-sub">Awaiting send</div></div>
+          <div className="stat-card"><div className="stat-label">Delivered</div><div className="stat-val">{orders.filter(o=>o.status==='delivered').length}</div><div className="stat-sub">Completed</div></div>
+        </div>
+        <div className="card">
+          <div className="card-header"><div className="card-title">Order History</div><button className="action-btn" onClick={()=>setShowPoSettings(true)}>⚙ PO Settings</button></div>
+          <table className="inv-table">
+            <thead><tr><th>PO Number</th><th>Vendor</th><th>Product</th><th>Qty</th><th>Total</th><th>Date</th><th>Status</th></tr></thead>
+            <tbody>
+              {orders.map(o => (
+                <tr key={o.id}>
+                  <td><span style={{fontWeight:600,fontFamily:'monospace',fontSize:'0.78rem'}}>{o.id}</span></td>
+                  <td style={{fontSize:'0.82rem'}}>{o.vendor}</td>
+                  <td style={{fontSize:'0.82rem',fontWeight:600}}>{o.product}</td>
+                  <td style={{fontSize:'0.82rem'}}>{o.qty} units</td>
+                  <td style={{fontSize:'0.82rem',fontWeight:700}}>{o.total}</td>
+                  <td style={{fontSize:'0.8rem',color:'var(--fg-muted)'}}>{o.date}</td>
+                  <td><span className="badge" style={{background:statusColors[o.status]?.bg,color:statusColors[o.status]?.color}}>{o.status.charAt(0).toUpperCase()+o.status.slice(1)}</span></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    );
+  }
+
+  function ActivityPage() {
+    const typeMeta = {
+      in:      { label:'Incoming',  color:'var(--accent)',   bg:'var(--accent-light)',  icon:'↓' },
+      out:     { label:'Outgoing',  color:'var(--amber)',    bg:'var(--amber-light)',   icon:'↑' },
+      use:     { label:'Usage',     color:'oklch(45% 0.13 290)', bg:'oklch(94% 0.04 290)', icon:'⛬' },
+      adjust:  { label:'Adjustment',color:'var(--fg-muted)',  bg:'var(--bg)',            icon:'✏' },
+      order:   { label:'Order Sent',color:'oklch(45% 0.14 230)', bg:'oklch(94% 0.04 230)', icon:'✉' },
+    };
+    const todayIn = activities.filter(a=>a.type==='in' && (Date.now() - new Date(a.timestamp).getTime() < 86400000)).reduce((s,a)=>s+Number(a.qty||0),0);
+    const todayOut = activities.filter(a=>(a.type==='out'||a.type==='use') && (Date.now() - new Date(a.timestamp).getTime() < 86400000)).reduce((s,a)=>s+Number(a.qty||0),0);
+    return (
+      <div className="content">
+        <div className="stat-row" style={{gridTemplateColumns:'repeat(4,1fr)'}}>
+          <div className="stat-card"><div className="stat-label">Total movements</div><div className="stat-val">{activities.length}</div><div className="stat-sub">All time</div></div>
+          <div className="stat-card"><div className="stat-label">Units in (24h)</div><div className="stat-val" style={{color:'var(--accent)'}}>+{todayIn}</div><div className="stat-sub">Stock received</div></div>
+          <div className="stat-card"><div className="stat-label">Units out (24h)</div><div className="stat-val" style={{color:'var(--amber)'}}>−{todayOut}</div><div className="stat-sub">Sales + usage</div></div>
+          <div className="stat-card"><div className="stat-label">Orders sent</div><div className="stat-val">{activities.filter(a=>a.type==='order').length}</div><div className="stat-sub">Via Faith</div></div>
+        </div>
+
+        <div className="card">
+          <div className="card-header">
+            <div>
+              <div className="card-title">Activity Log</div>
+              <div className="card-sub">All inventory movements and orders — most recent first</div>
+            </div>
+            <button className="action-btn" onClick={()=>{if(confirm('Clear all activity? This cannot be undone.')){setActivities([]);localStorage.removeItem('faith_activities');}}}>Clear log</button>
+          </div>
+          {activities.length === 0 ? (
+            <div className="empty-state">
+              <div style={{fontSize:'2rem',marginBottom:8,opacity:0.4}}>⇄</div>
+              <div style={{fontWeight:600,marginBottom:4}}>No activity yet</div>
+              <div style={{fontSize:'0.8rem',color:'var(--fg-muted)'}}>Log incoming or outgoing stock from the Inventory page.</div>
+            </div>
+          ) : (
+            <table className="inv-table">
+              <thead><tr><th>When</th><th>Type</th><th>Product</th><th>Qty</th><th>Note</th></tr></thead>
+              <tbody>
+                {activities.map(a => {
+                  const t = typeMeta[a.type] || typeMeta.adjust;
+                  const time = new Date(a.timestamp);
+                  const friendly = (() => {
+                    const ms = Date.now() - time.getTime();
+                    if (ms < 60000) return 'Just now';
+                    if (ms < 3600000) return Math.floor(ms/60000)+'m ago';
+                    if (ms < 86400000) return Math.floor(ms/3600000)+'h ago';
+                    return time.toLocaleDateString();
+                  })();
+                  return (
+                    <tr key={a.id}>
+                      <td><div style={{fontSize:'0.82rem',fontWeight:600}}>{friendly}</div><div style={{fontSize:'0.7rem',color:'var(--fg-muted)'}}>{time.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}</div></td>
+                      <td><span className="badge" style={{background:t.bg,color:t.color}}>{t.icon} {t.label}</span></td>
+                      <td style={{fontSize:'0.85rem',fontWeight:600}}>{a.itemName}</td>
+                      <td style={{fontSize:'0.85rem',fontWeight:700,color:a.type==='in'?'var(--accent)':a.type==='out'||a.type==='use'?'var(--amber)':'var(--fg)'}}>{a.type==='in'?'+':a.type==='out'||a.type==='use'?'−':''}{a.qty||0}</td>
+                      <td style={{fontSize:'0.8rem',color:'var(--fg-muted)'}}>{a.note || '—'}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  function VendorsPage() {
+    return (
+      <div className="content">
+        <div className="stat-row" style={{gridTemplateColumns:'repeat(3,1fr)'}}>
+          <div className="stat-card"><div className="stat-label">Total Vendors</div><div className="stat-val">{vendors.length}</div><div className="stat-sub">From your sheet</div></div>
+          <div className="stat-card"><div className="stat-label">With low stock</div><div className="stat-val" style={{color:vendors.some(v=>v.lowItems>0)?'var(--amber)':'var(--fg)'}}>{vendors.filter(v=>v.lowItems>0).length}</div><div className="stat-sub">Need reorders</div></div>
+          <div className="stat-card"><div className="stat-label">Products tracked</div><div className="stat-val">{liveInventory.length}</div><div className="stat-sub">Across all vendors</div></div>
+        </div>
+        <div className="card">
+          <div className="card-header">
+            <div>
+              <div className="card-title">Vendor Directory</div>
+              <div className="card-sub">Pulled from your sheet — add missing emails by clicking Edit</div>
+            </div>
+          </div>
+          {vendors.length === 0 ? (
+            <div className="empty-state"><div style={{fontSize:'2rem',marginBottom:8,opacity:0.4}}>◈</div><div style={{fontWeight:600,marginBottom:4}}>No vendors found</div><div style={{fontSize:'0.8rem',color:'var(--fg-muted)'}}>Add a <code>Vendor</code> column to your sheet to see vendors here.</div></div>
+          ) : (
+            <div style={{overflowX:'auto'}}>
+            <table className="inv-table">
+              <thead><tr><th>Vendor</th><th>Contact</th><th>Email</th><th>Phone</th><th>Products</th><th>Low Stock</th><th style={{textAlign:'right'}}></th></tr></thead>
+              <tbody>
+                {vendors.map(v => (
+                  <tr key={v.id}>
+                    <td><span style={{fontWeight:700}}>{v.name}</span></td>
+                    <td style={{fontSize:'0.82rem',color:'var(--fg-muted)'}}>{v.contact || <span style={{color:'var(--border)'}}>—</span>}</td>
+                    <td style={{fontSize:'0.78rem',color:v.email?'var(--accent)':'var(--fg-muted)'}}>{v.email || <span style={{color:'var(--red)'}}>Missing</span>}</td>
+                    <td style={{fontSize:'0.8rem',color:'var(--fg-muted)'}}>{v.phone || <span style={{color:'var(--border)'}}>—</span>}</td>
+                    <td style={{fontSize:'0.82rem'}}>{v.items} product{v.items===1?'':'s'}</td>
+                    <td>{v.lowItems > 0 ? <span className="badge" style={{background:'var(--amber-light)',color:'var(--amber)'}}>{v.lowItems} low</span> : <span style={{fontSize:'0.78rem',color:'var(--fg-muted)'}}>None</span>}</td>
+                    <td style={{textAlign:'right'}}><button className="action-btn" onClick={()=>setEditingVendor(v)}>Edit</button></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  const navItems = [
+    { id:'dashboard', icon:'▦', label:'Dashboard' },
+    { id:'inventory', icon:'☰', label:'Inventory' },
+    { id:'activity', icon:'⇄', label:'Activity' },
+    { id:'orders', icon:'◎', label:'Orders' },
+    { id:'vendors', icon:'◈', label:'Vendors' },
+  ];
+
+  return (
+    <>
+      {/* SIDEBAR */}
+      <div className="sidebar">
+        <a className="sidebar-logo" href="index.html" style={{textDecoration:'none',cursor:'pointer'}} title="Back to home">
+          <div className="logo-mark">✦
+            <svg width="0" height="0" viewBox="0 0 14 14" fill="none" style={{display:'none'}}>
+              <path d="M7 1L13 7L7 13L1 7L7 1Z" fill="white"/>
+            </svg>
+          </div>
+          <span>Faith</span>
+        </a>
+        <nav className="sidebar-nav">
+          <div className="nav-section">Main</div>
+          {navItems.map(n => (
+            <a key={n.id} className={`nav-item ${activeNav===n.id?'active':''}`} onClick={()=>setActiveNav(n.id)} href="#">
+              <span style={{fontSize:'0.85rem'}}>{n.icon}</span>
+              {n.label}
+            </a>
+          ))}
+          <div className="nav-section">Settings</div>
+          <a className="nav-item" href="#" onClick={(e)=>{e.preventDefault();handleDisconnect();}}>
+            <span style={{fontSize:'0.85rem'}}>⧄</span>Disconnect Sheet
+          </a>
+          <a className="nav-item" href="index.html">
+            <span style={{fontSize:'0.85rem'}}>←</span>Back to Site
+          </a>
+        </nav>
+        <div className="sidebar-footer">
+          <div className="sidebar-user">
+            <div className="user-avatar">{(authedUser?.email || 'U')[0].toUpperCase()}</div>
+            <div className="user-info">
+              <div className="user-name">{authedUser?.email || 'Demo user'}</div>
+              <div className="user-role" style={{cursor:'pointer',color:'var(--accent)'}} onClick={async()=>{
+                if(confirm('Sign out of Faith?')){
+                  if(window.auth) await window.auth.signOut();
+                  setAuthedUser(null);
+                }
+              }}>Sign out →</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* MAIN CONTENT */}
+      <div className="main">
+        <div className="topbar">
+          <div>
+            <div className="topbar-title">{pageTitles[activeNav]}</div>
+          </div>
+          <div className="topbar-right">
+            {pendingDrafts > 0 && (
+              <div className="topbar-badge">✦ {pendingDrafts} Faith draft{pendingDrafts>1?'s':''} ready</div>
+            )}
+            <button className="sync-btn" onClick={handleSync} style={{display: connection?.type === 'sheets' ? 'flex' : 'none'}}>
+              <svg width="13" height="13" viewBox="0 0 13 13" fill="none" style={{transform:syncing?'rotate(180deg)':'',transition:'transform 0.5s'}}>
+                <path d="M11 6.5A4.5 4.5 0 1 1 6.5 2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                <path d="M6.5 2L9 4.5M6.5 2L9 0" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+              </svg>
+              {syncing ? 'Syncing…' : 'Sync Sheet'}
+            </button>
+            <button className="sync-btn" onClick={()=>setShowAddProduct(true)} style={{borderColor:'var(--accent)',color:'var(--accent)'}}>
+              <span style={{fontSize:'1rem',lineHeight:1}}>+</span> Add Product
+            </button>
+          </div>
+        </div>
+
+        {activeNav === 'inventory' && <InventoryPage/>}
+        {activeNav === 'activity' && <ActivityPage/>}
+        {activeNav === 'orders' && <OrdersPage/>}
+        {activeNav === 'vendors' && <VendorsPage/>}
+        {activeNav === 'dashboard' && <div className="content">
+          {/* STAT ROW */}
+          <div className="stat-row">
+            <div className="stat-card" style={{cursor:'pointer'}} onClick={()=>setModal('skus')}>
+              <div className="stat-label">Total SKUs</div>
+              <div className="stat-val">{inventory.length}</div>
+              <div className="stat-sub">Across all categories ↗</div>
+            </div>
+            <div className="stat-card alert-card" style={{cursor:'pointer'}} onClick={()=>setModal('alerts')}>
+              <div className="stat-label">Low Stock Alerts</div>
+              <div className="stat-val">{alerts.length}</div>
+              <div className="stat-sub">{critical.length} critical, {alerts.length - critical.length} low ↗</div>
+            </div>
+            <div className="stat-card critical-card" style={{cursor:'pointer'}} onClick={()=>setModal('critical')}>
+              <div className="stat-label">Critical Items</div>
+              <div className="stat-val">{critical.length}</div>
+              <div className="stat-sub">Order immediately ↗</div>
+            </div>
+            <div className="stat-card" style={{cursor:'pointer'}} onClick={()=>setModal('drafts')}>
+              <div className="stat-label">Faith Drafts Ready</div>
+              <div className="stat-val">{pendingDrafts}</div>
+              <div className="stat-sub">Awaiting your approval ↗</div>
+            </div>
+          </div>
+
+          {/* TABLE + FAITH */}
+          <div className="two-col">
+            <div className="card">
+              <div className="card-header">
+                <div>
+                  <div className="card-title">Inventory</div>
+                  <div className="card-sub">{connection?.type === 'sheets' ? 'Synced live from your Google Sheet' : connection?.type === 'csv' ? `Uploaded \${connection?.filename || 'CSV file'}` : ''}</div>
+                </div>
+                <div className="filter-tabs">
+                  {[['all','All'],['alerts','Alerts'],['critical','Critical'],['good','Good']].map(([k,l]) => (
+                    <button key={k} className={`filter-tab ${filter===k?'active':''}`} onClick={()=>setFilter(k)}>{l}</button>
+                  ))}
+                </div>
+              </div>
+              <InventoryTable inventory={liveInventory} filter={filter} onLog={(item,type)=>setActivityModal({item,type})} extraColumns={extraColumns}/>
+            </div>
+
+            <FaithPanel drafts={drafts} onApprove={handleApprove} onDismiss={handleDismiss} onRegenerate={generateDraft} onOpenSettings={()=>setShowSettings(true)}/>
+          </div>
+        </div>}
+      </div>
+
+      {/* TWEAKS PANEL */}
+      <div className={`tweaks-panel ${showTweaks?'visible':''}`}>
+        <div className="tweaks-title">
+          Tweaks
+          <button className="tweaks-close" onClick={()=>setShowTweaks(false)}>✕</button>
+        </div>
+
+        <div className="tweak-row">
+          <div className="tweak-label">Density</div>
+          <div className="tweak-options">
+            {['comfortable','compact'].map(opt => (
+              <button key={opt} className={`tweak-opt ${tweaks.density===opt?'selected':''}`} onClick={()=>updateTweak('density',opt)}>
+                {opt.charAt(0).toUpperCase()+opt.slice(1)}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="tweak-row">
+          <div className="tweak-label">Sidebar style</div>
+          <div className="tweak-options">
+            {['icons+labels','icons only'].map(opt => (
+              <button key={opt} className={`tweak-opt ${tweaks.sidebar===opt?'selected':''}`} onClick={()=>updateTweak('sidebar',opt)}>
+                {opt}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="tweak-row">
+          <div className="tweak-label">Auto-approve low stock</div>
+          <div className="tweak-toggle">
+            <span style={{fontSize:'0.78rem',color:'var(--fg-muted)'}}>Let Faith send without approval</span>
+            <div className={`toggle-switch ${tweaks.autoApprove?'on':''}`} onClick={()=>updateTweak('autoApprove',!tweaks.autoApprove)}>
+              <div className="toggle-knob"/>
+            </div>
+          </div>
+        </div>
+
+        <div className="tweak-row">
+          <div className="tweak-label">Accent color</div>
+          <div className="tweak-options">
+            {[['Sage','oklch(52% 0.13 160)'],['Blue','oklch(52% 0.13 230)'],['Violet','oklch(52% 0.13 290)']].map(([name, color]) => (
+              <button key={name} className={`tweak-opt ${tweaks.accent===color?'selected':''}`}
+                onClick={()=>{
+                  updateTweak('accent',color);
+                  document.documentElement.style.setProperty('--accent', color);
+                  document.documentElement.style.setProperty('--accent-light', color.replace('52%','94%').replace('0.13','0.04'));
+                }}>
+                {name}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* MODAL */}
+      {modal && (() => {
+        const configs = {
+          skus:     { title:'All SKUs',           subtitle:`${inventory.length} products tracked`,          filter:'all'      },
+          alerts:   { title:'Low Stock Alerts',   subtitle:`${alerts.length} items need restocking`,        filter:'alerts'   },
+          critical: { title:'Critical Items',     subtitle:`${critical.length} items need immediate orders`,filter:'critical' },
+          drafts:   { title:'Faith Drafts Ready', subtitle:`${pendingDrafts} emails awaiting approval`,     filter:null       },
+        };
+        const cfg = configs[modal];
+        const filtered = inventory.filter(i => {
+          if (!cfg.filter || cfg.filter==='all') return true;
+          if (cfg.filter==='alerts') return ['critical','low'].includes(getStatus(i.stock,i.safety));
+          if (cfg.filter==='critical') return getStatus(i.stock,i.safety)==='critical';
+          return true;
+        });
+        return (
+          <div style={{position:'fixed',inset:0,background:'oklch(0% 0 0 / 0.45)',zIndex:2000,display:'flex',alignItems:'center',justifyContent:'center',padding:'24px'}} onClick={()=>setModal(null)}>
+            <div style={{background:'var(--surface)',borderRadius:'16px',width:'100%',maxWidth:'720px',maxHeight:'80vh',display:'flex',flexDirection:'column',boxShadow:'0 24px 80px oklch(0% 0 0 / 0.2)',overflow:'hidden'}} onClick={e=>e.stopPropagation()}>
+              <div style={{padding:'20px 24px',borderBottom:'1px solid var(--border)',display:'flex',alignItems:'center',justifyContent:'space-between',flexShrink:0}}>
+                <div>
+                  <div style={{fontWeight:700,fontSize:'1rem',letterSpacing:'-0.02em'}}>{cfg.title}</div>
+                  <div style={{fontSize:'0.78rem',color:'var(--fg-muted)',marginTop:'2px'}}>{cfg.subtitle}</div>
+                </div>
+                <button onClick={()=>setModal(null)} style={{background:'none',border:'none',cursor:'pointer',fontSize:'1.1rem',color:'var(--fg-muted)',padding:'4px 8px',borderRadius:'6px',fontFamily:'inherit'}}>✕</button>
+              </div>
+              <div style={{overflowY:'auto',flex:1}}>
+                {modal==='drafts' ? (
+                  <div style={{padding:'16px',display:'flex',flexDirection:'column',gap:'12px'}}>
+                    {drafts.filter(d=>d.status==='pending').length===0
+                      ? <div style={{textAlign:'center',padding:'40px',color:'var(--fg-muted)',fontSize:'0.9rem'}}>All drafts processed — nothing pending.</div>
+                      : drafts.filter(d=>d.status==='pending').map(d=>(
+                          <DraftCard key={d.id} draft={d} onApprove={handleApprove} onDismiss={handleDismiss} onRegenerate={generateDraft}/>
+                        ))
+                    }
+                  </div>
+                ) : (
+                  <table className="inv-table">
+                    <thead><tr><th>Product</th><th>Category</th><th>Stock</th><th>Safety</th><th>Status</th><th>Vendor</th></tr></thead>
+                    <tbody>
+                      {filtered.map(item=>{
+                        const status=getStatus(item.stock,item.safety);
+                        return (
+                          <tr key={item.id}>
+                            <td><div className="prod-name">{item.name}</div><div className="prod-sku">{item.sku}</div></td>
+                            <td style={{color:'var(--fg-muted)',fontSize:'0.8rem'}}>{item.category}</td>
+                            <td><StockBar stock={item.stock} safety={item.safety} status={status}/></td>
+                            <td style={{color:'var(--fg-muted)',fontSize:'0.82rem'}}>{item.safety} units</td>
+                            <td><StatusBadge status={status}/></td>
+                            <td style={{fontSize:'0.8rem',color:'var(--fg-muted)'}}>{item.vendor}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+              <div style={{padding:'14px 24px',borderTop:'1px solid var(--border)',display:'flex',justifyContent:'flex-end',gap:'8px',flexShrink:0}}>
+                {modal!=='drafts' && (
+                  <button className="action-btn" onClick={()=>{setActiveNav('inventory');setFilter(modal==='skus'?'all':modal==='alerts'?'alerts':'critical');setModal(null);}}>
+                    Open in Inventory →
+                  </button>
+                )}
+                <button onClick={()=>setModal(null)} style={{background:'var(--fg)',color:'#fff',border:'none',padding:'6px 16px',borderRadius:'8px',fontWeight:600,fontSize:'0.82rem',cursor:'pointer',fontFamily:'inherit'}}>Close</button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* SETTINGS MODAL — Business info + PO template */}
+      {showSettings && (
+        <SettingsModal settings={settings} onSave={(s)=>{saveSettings(s); setShowSettings(false);}} onClose={()=>setShowSettings(false)}/>
+      )}
+
+      {/* ACTIVITY MODAL — Log incoming/outgoing/usage */}
+      {activityModal && (
+        <ActivityLogModal
+          item={activityModal.item}
+          type={activityModal.type}
+          onSave={(entry)=>{logActivity({...entry, itemId:activityModal.item.id, itemName:activityModal.item.name}); setActivityModal(null);}}
+          onClose={()=>setActivityModal(null)}
+        />
+      )}
+
+      {/* ADD PRODUCT MODAL */}
+      {showAddProduct && (
+        <AddProductModal extraColumns={extraColumns} onSave={(p)=>{addLocalProduct(p); setShowAddProduct(false);}} onClose={()=>setShowAddProduct(false)}/>
+      )}
+
+      {/* VENDOR EDIT MODAL */}
+      {editingVendor && (
+        <VendorEditModal
+          vendor={editingVendor}
+          onSave={(fields)=>{saveVendorOverride(editingVendor.originalName, fields); setEditingVendor(null);}}
+          onClose={()=>setEditingVendor(null)}
+        />
+      )}
+
+      {/* PO SETTINGS MODAL */}
+      {showPoSettings && (
+        <PoSettingsModal config={poConfig} onSave={(c)=>{updatePoConfig(c); setShowPoSettings(false);}} onClose={()=>setShowPoSettings(false)} />
+      )}
+    </>
+  );
+}
+
+function VendorEditModal({ vendor, onSave, onClose }) {
+  const [name, setName] = useState(vendor.name || '');
+  const [email, setEmail] = useState(vendor.email || '');
+  const [contact, setContact] = useState(vendor.contact || '');
+  const [phone, setPhone] = useState(vendor.phone || '');
+  const [notes, setNotes] = useState(vendor.notes || '');
+
+  function handleSubmit() {
+    if (!name.trim()) { alert('Vendor name required'); return; }
+    onSave({ name: name.trim(), email: email.trim(), contact: contact.trim(), phone: phone.trim(), notes: notes.trim() });
+  }
+
+  const inp = { width:'100%', padding:'10px 12px', borderRadius:8, border:'1.5px solid var(--border)', fontSize:'0.85rem', outline:'none', background:'var(--bg)', color:'var(--fg)', fontFamily:'inherit', marginBottom:12 };
+  const lbl = { display:'block', fontSize:'0.72rem', fontWeight:600, color:'var(--fg-muted)', marginBottom:4, textTransform:'uppercase', letterSpacing:'0.04em' };
+
+  return (
+    <div style={{position:'fixed',inset:0,background:'oklch(0% 0 0 / 0.5)',zIndex:3000,display:'flex',alignItems:'center',justifyContent:'center',padding:'24px'}} onClick={onClose}>
+      <div style={{background:'var(--surface)',borderRadius:16,width:'100%',maxWidth:520,maxHeight:'90vh',display:'flex',flexDirection:'column',boxShadow:'0 24px 80px oklch(0% 0 0 / 0.2)',overflow:'hidden'}} onClick={e=>e.stopPropagation()}>
+        <div style={{padding:'20px 24px',borderBottom:'1px solid var(--border)',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+          <div>
+            <div style={{fontWeight:700,fontSize:'1rem',letterSpacing:'-0.02em'}}>Edit Vendor</div>
+            <div style={{fontSize:'0.78rem',color:'var(--fg-muted)',marginTop:2}}>Faith will use these details for all future emails</div>
+          </div>
+          <button onClick={onClose} style={{background:'none',border:'none',cursor:'pointer',fontSize:'1.1rem',color:'var(--fg-muted)',padding:'4px 8px',borderRadius:6,fontFamily:'inherit'}}>✕</button>
+        </div>
+        <div style={{padding:'20px 24px',overflowY:'auto',flex:1}}>
+          <label style={lbl}>Vendor name *</label>
+          <input style={inp} value={name} onChange={e=>setName(e.target.value)} autoFocus/>
+          <label style={lbl}>Contact person</label>
+          <input style={inp} value={contact} onChange={e=>setContact(e.target.value)} placeholder="e.g. Sarah Mills"/>
+          <label style={lbl}>Email address</label>
+          <input type="email" style={inp} value={email} onChange={e=>setEmail(e.target.value)} placeholder="orders@vendor.com"/>
+          <label style={lbl}>Phone</label>
+          <input style={inp} value={phone} onChange={e=>setPhone(e.target.value)} placeholder="+1 555 0101"/>
+          <label style={lbl}>Notes</label>
+          <textarea style={{...inp, minHeight:60, resize:'vertical'}} value={notes} onChange={e=>setNotes(e.target.value)} placeholder="Order minimums, delivery terms, payment preferences…"/>
+        </div>
+        <div style={{padding:'14px 24px',borderTop:'1px solid var(--border)',display:'flex',justifyContent:'flex-end',gap:8,background:'var(--bg)'}}>
+          <button onClick={onClose} style={{background:'transparent',border:'1.5px solid var(--border)',padding:'8px 18px',borderRadius:8,fontWeight:600,fontSize:'0.82rem',cursor:'pointer',fontFamily:'inherit'}}>Cancel</button>
+          <button onClick={handleSubmit} style={{background:'var(--accent)',color:'#fff',border:'none',padding:'8px 18px',borderRadius:8,fontWeight:700,fontSize:'0.82rem',cursor:'pointer',fontFamily:'inherit'}}>Save</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PoSettingsModal({ config, onSave, onClose }) {
+  const [prefix, setPrefix] = useState(config.prefix || 'PO-');
+  const [nextNumber, setNextNumber] = useState(config.nextNumber || 1001);
+  const [padding, setPadding] = useState(config.padding || 4);
+
+  function handleSubmit() {
+    const num = Number(nextNumber);
+    if (!num || num < 1) { alert('Next PO number must be a positive integer'); return; }
+    onSave({ prefix: prefix.trim() || 'PO-', nextNumber: num, padding: Number(padding) || 0 });
+  }
+
+  const preview = `${prefix || 'PO-'}${String(nextNumber || 1001).padStart(Number(padding) || 0, '0')}`;
+  const inp = { width:'100%', padding:'10px 12px', borderRadius:8, border:'1.5px solid var(--border)', fontSize:'0.85rem', outline:'none', background:'var(--bg)', color:'var(--fg)', fontFamily:'inherit', marginBottom:12 };
+  const lbl = { display:'block', fontSize:'0.72rem', fontWeight:600, color:'var(--fg-muted)', marginBottom:4, textTransform:'uppercase', letterSpacing:'0.04em' };
+
+  return (
+    <div style={{position:'fixed',inset:0,background:'oklch(0% 0 0 / 0.5)',zIndex:3000,display:'flex',alignItems:'center',justifyContent:'center',padding:'24px'}} onClick={onClose}>
+      <div style={{background:'var(--surface)',borderRadius:16,width:'100%',maxWidth:480,boxShadow:'0 24px 80px oklch(0% 0 0 / 0.2)',overflow:'hidden'}} onClick={e=>e.stopPropagation()}>
+        <div style={{padding:'20px 24px',borderBottom:'1px solid var(--border)',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+          <div>
+            <div style={{fontWeight:700,fontSize:'1rem',letterSpacing:'-0.02em'}}>PO Numbering</div>
+            <div style={{fontSize:'0.78rem',color:'var(--fg-muted)',marginTop:2}}>Set the format and starting number — each order increments by 1</div>
+          </div>
+          <button onClick={onClose} style={{background:'none',border:'none',cursor:'pointer',fontSize:'1.1rem',color:'var(--fg-muted)',padding:'4px 8px',borderRadius:6,fontFamily:'inherit'}}>✕</button>
+        </div>
+        <div style={{padding:'20px 24px'}}>
+          <div style={{padding:'14px 16px',background:'var(--accent-light)',border:'1px solid var(--accent)',borderRadius:8,marginBottom:18,textAlign:'center'}}>
+            <div style={{fontSize:'0.72rem',color:'var(--fg-muted)',textTransform:'uppercase',letterSpacing:'0.04em',marginBottom:4}}>Next PO will be</div>
+            <div style={{fontSize:'1.5rem',fontWeight:800,color:'var(--accent)',fontFamily:'monospace'}}>{preview}</div>
+          </div>
+          <label style={lbl}>Prefix</label>
+          <input style={inp} value={prefix} onChange={e=>setPrefix(e.target.value)} placeholder="PO-"/>
+          <label style={lbl}>Next number</label>
+          <input type="number" style={inp} value={nextNumber} onChange={e=>setNextNumber(e.target.value)}/>
+          <label style={lbl}>Number padding (zeros)</label>
+          <input type="number" style={inp} value={padding} onChange={e=>setPadding(e.target.value)} placeholder="4 = 0001"/>
+          <div style={{fontSize:'0.75rem',color:'var(--fg-muted)',lineHeight:1.6,padding:'10px 12px',background:'var(--bg)',borderRadius:6}}>
+            Each time you approve a draft, Faith assigns the next number and increments by 1. You can edit this anytime to skip numbers or restart a series.
+          </div>
+        </div>
+        <div style={{padding:'14px 24px',borderTop:'1px solid var(--border)',display:'flex',justifyContent:'flex-end',gap:8,background:'var(--bg)'}}>
+          <button onClick={onClose} style={{background:'transparent',border:'1.5px solid var(--border)',padding:'8px 18px',borderRadius:8,fontWeight:600,fontSize:'0.82rem',cursor:'pointer',fontFamily:'inherit'}}>Cancel</button>
+          <button onClick={handleSubmit} style={{background:'var(--accent)',color:'#fff',border:'none',padding:'8px 18px',borderRadius:8,fontWeight:700,fontSize:'0.82rem',cursor:'pointer',fontFamily:'inherit'}}>Save</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AddProductModal({ extraColumns, onSave, onClose }) {
+  const [form, setForm] = useState({ name:'', sku:'', category:'', stock:'', safety:'', vendor:'', vendorEmail:'', unitCost:'', reorderQty:'' });
+  const [extra, setExtra] = useState({});
+
+  function handleSubmit() {
+    if (!form.name.trim()) { alert('Product name is required'); return; }
+    onSave({
+      name: form.name.trim(),
+      sku: form.sku.trim(),
+      category: form.category.trim(),
+      stock: form.stock !== '' ? Number(form.stock) : null,
+      safety: form.safety !== '' ? Number(form.safety) : null,
+      vendor: form.vendor.trim(),
+      vendorEmail: form.vendorEmail.trim(),
+      unitCost: form.unitCost !== '' ? Number(form.unitCost) : null,
+      reorderQty: form.reorderQty !== '' ? Number(form.reorderQty) : null,
+      extra: extra,
+    });
+  }
+
+  const fieldStyle = { width:'100%', padding:'10px 12px', borderRadius:8, border:'1.5px solid var(--border)', fontSize:'0.85rem', outline:'none', background:'var(--bg)', color:'var(--fg)', fontFamily:'inherit', marginBottom:10 };
+  const labelStyle = { display:'block', fontSize:'0.72rem', fontWeight:600, color:'var(--fg-muted)', marginBottom:4, textTransform:'uppercase', letterSpacing:'0.04em' };
+
+  return (
+    <div style={{position:'fixed',inset:0,background:'oklch(0% 0 0 / 0.5)',zIndex:3000,display:'flex',alignItems:'center',justifyContent:'center',padding:'24px'}} onClick={onClose}>
+      <div style={{background:'var(--surface)',borderRadius:16,width:'100%',maxWidth:560,maxHeight:'90vh',display:'flex',flexDirection:'column',boxShadow:'0 24px 80px oklch(0% 0 0 / 0.2)',overflow:'hidden'}} onClick={e=>e.stopPropagation()}>
+        <div style={{padding:'20px 24px',borderBottom:'1px solid var(--border)',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+          <div>
+            <div style={{fontWeight:700,fontSize:'1rem',letterSpacing:'-0.02em'}}>Add Product</div>
+            <div style={{fontSize:'0.78rem',color:'var(--fg-muted)',marginTop:2}}>Stored locally · won't push to your sheet automatically</div>
+          </div>
+          <button onClick={onClose} style={{background:'none',border:'none',cursor:'pointer',fontSize:'1.1rem',color:'var(--fg-muted)',padding:'4px 8px',borderRadius:6,fontFamily:'inherit'}}>✕</button>
+        </div>
+
+        <div style={{padding:'20px 24px',overflowY:'auto',flex:1}}>
+          <label style={labelStyle}>Product name *</label>
+          <input style={fieldStyle} value={form.name} onChange={e=>setForm({...form,name:e.target.value})} placeholder="e.g. Organic Oats 1kg" autoFocus/>
+
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
+            <div><label style={labelStyle}>SKU</label><input style={fieldStyle} value={form.sku} onChange={e=>setForm({...form,sku:e.target.value})} placeholder="OAT-001"/></div>
+            <div><label style={labelStyle}>Category</label><input style={fieldStyle} value={form.category} onChange={e=>setForm({...form,category:e.target.value})} placeholder="Grains"/></div>
+          </div>
+
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
+            <div><label style={labelStyle}>Current stock</label><input type="number" style={fieldStyle} value={form.stock} onChange={e=>setForm({...form,stock:e.target.value})} placeholder="50"/></div>
+            <div><label style={labelStyle}>Safety threshold</label><input type="number" style={fieldStyle} value={form.safety} onChange={e=>setForm({...form,safety:e.target.value})} placeholder="20"/></div>
+          </div>
+
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
+            <div><label style={labelStyle}>Vendor</label><input style={fieldStyle} value={form.vendor} onChange={e=>setForm({...form,vendor:e.target.value})} placeholder="GrainCo Supplies"/></div>
+            <div><label style={labelStyle}>Vendor email</label><input type="email" style={fieldStyle} value={form.vendorEmail} onChange={e=>setForm({...form,vendorEmail:e.target.value})} placeholder="orders@grainco.com"/></div>
+          </div>
+
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
+            <div><label style={labelStyle}>Unit cost</label><input type="number" step="0.01" style={fieldStyle} value={form.unitCost} onChange={e=>setForm({...form,unitCost:e.target.value})} placeholder="2.40"/></div>
+            <div><label style={labelStyle}>Reorder qty</label><input type="number" style={fieldStyle} value={form.reorderQty} onChange={e=>setForm({...form,reorderQty:e.target.value})} placeholder="200"/></div>
+          </div>
+
+          {extraColumns.length > 0 && (
+            <div style={{marginTop:8,paddingTop:14,borderTop:'1px dashed var(--border)'}}>
+              <div style={{fontSize:'0.72rem',fontWeight:700,textTransform:'uppercase',letterSpacing:'0.05em',color:'var(--fg-muted)',marginBottom:8}}>Extra columns from your sheet</div>
+              {extraColumns.map(col => (
+                <div key={col}>
+                  <label style={labelStyle}>{col.replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase())}</label>
+                  <input style={fieldStyle} value={extra[col] || ''} onChange={e=>setExtra({...extra,[col]:e.target.value})}/>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div style={{padding:'14px 24px',borderTop:'1px solid var(--border)',display:'flex',justifyContent:'flex-end',gap:8,background:'var(--bg)'}}>
+          <button onClick={onClose} style={{background:'transparent',border:'1.5px solid var(--border)',padding:'8px 18px',borderRadius:8,fontWeight:600,fontSize:'0.82rem',cursor:'pointer',fontFamily:'inherit'}}>Cancel</button>
+          <button onClick={handleSubmit} style={{background:'var(--accent)',color:'#fff',border:'none',padding:'8px 18px',borderRadius:8,fontWeight:700,fontSize:'0.82rem',cursor:'pointer',fontFamily:'inherit'}}>Add Product</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ActivityLogModal({ item, type, onSave, onClose }) {
+  const [qty, setQty] = useState('');
+  const [note, setNote] = useState('');
+  const [activeType, setActiveType] = useState(type || 'in');
+
+  const types = [
+    { id:'in',     label:'Incoming',   desc:'Stock received from vendor',     color:'var(--accent)' },
+    { id:'out',    label:'Outgoing',   desc:'Sale or shipment out',            color:'var(--amber)' },
+    { id:'use',    label:'Usage',      desc:'Consumed as raw material',        color:'oklch(45% 0.13 290)' },
+    { id:'adjust', label:'Adjustment', desc:'Recount / waste / correction',    color:'var(--fg-muted)' },
+  ];
+  const sel = types.find(t => t.id === activeType) || types[0];
+
+  function handleSubmit() {
+    const n = Number(qty);
+    if (!n || n <= 0) { alert('Please enter a valid quantity.'); return; }
+    onSave({ type: activeType, qty: n, note: note.trim() });
+  }
+
+  return (
+    <div style={{position:'fixed',inset:0,background:'oklch(0% 0 0 / 0.5)',zIndex:3000,display:'flex',alignItems:'center',justifyContent:'center',padding:'24px'}} onClick={onClose}>
+      <div style={{background:'var(--surface)',borderRadius:16,width:'100%',maxWidth:500,boxShadow:'0 24px 80px oklch(0% 0 0 / 0.2)',overflow:'hidden'}} onClick={e=>e.stopPropagation()}>
+
+        <div style={{padding:'20px 24px',borderBottom:'1px solid var(--border)',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+          <div>
+            <div style={{fontWeight:700,fontSize:'1rem',letterSpacing:'-0.02em'}}>Log Activity</div>
+            <div style={{fontSize:'0.78rem',color:'var(--fg-muted)',marginTop:2}}>{item.name} · {item.sku}</div>
+          </div>
+          <button onClick={onClose} style={{background:'none',border:'none',cursor:'pointer',fontSize:'1.1rem',color:'var(--fg-muted)',padding:'4px 8px',borderRadius:6,fontFamily:'inherit'}}>✕</button>
+        </div>
+
+        <div style={{padding:'20px 24px'}}>
+          <div style={{fontSize:'0.78rem',fontWeight:700,textTransform:'uppercase',letterSpacing:'0.05em',color:'var(--fg-muted)',marginBottom:10}}>Movement type</div>
+          <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:6,marginBottom:20}}>
+            {types.map(t => (
+              <button key={t.id} onClick={()=>setActiveType(t.id)}
+                style={{
+                  background: activeType===t.id ? t.color : 'var(--bg)',
+                  color: activeType===t.id ? '#fff' : 'var(--fg)',
+                  border: `1.5px solid ${activeType===t.id ? t.color : 'var(--border)'}`,
+                  padding:'10px 6px',
+                  borderRadius:8,
+                  fontSize:'0.78rem',
+                  fontWeight:700,
+                  cursor:'pointer',
+                  fontFamily:'inherit'
+                }}>
+                {t.label}
+              </button>
+            ))}
+          </div>
+
+          <div style={{fontSize:'0.78rem',color:'var(--fg-muted)',marginBottom:14,padding:'8px 12px',background:'var(--bg)',borderRadius:6,borderLeft:`3px solid ${sel.color}`}}>{sel.desc}</div>
+
+          <label style={{display:'block',fontSize:'0.78rem',fontWeight:600,marginBottom:6}}>Quantity</label>
+          <input
+            type="number" min="1" autoFocus
+            value={qty}
+            onChange={e=>setQty(e.target.value)}
+            placeholder={`How many units ${activeType === 'in' ? 'received' : activeType === 'out' ? 'shipped' : activeType === 'use' ? 'used' : 'adjusted'}?`}
+            style={{width:'100%',padding:'12px 14px',borderRadius:8,border:'1.5px solid var(--border)',fontSize:'0.9rem',outline:'none',marginBottom:14,background:'var(--bg)',color:'var(--fg)',fontFamily:'inherit'}}
+            onKeyDown={e=>{if(e.key==='Enter')handleSubmit();}}
+          />
+
+          <label style={{display:'block',fontSize:'0.78rem',fontWeight:600,marginBottom:6}}>Note (optional)</label>
+          <input
+            value={note}
+            onChange={e=>setNote(e.target.value)}
+            placeholder="e.g. Delivery from GrainCo, PO-12345"
+            style={{width:'100%',padding:'10px 14px',borderRadius:8,border:'1.5px solid var(--border)',fontSize:'0.82rem',outline:'none',background:'var(--bg)',color:'var(--fg)',fontFamily:'inherit'}}
+            onKeyDown={e=>{if(e.key==='Enter')handleSubmit();}}
+          />
+
+          <div style={{fontSize:'0.75rem',color:'var(--fg-muted)',marginTop:14,padding:'8px 12px',background:'var(--bg)',borderRadius:6}}>
+            <strong>Current stock:</strong> {item.stock} units · <strong>After this:</strong> <span style={{color:sel.color,fontWeight:700}}>{
+              activeType === 'in' ? item.stock + (Number(qty)||0)
+              : activeType === 'out' || activeType === 'use' ? item.stock - (Number(qty)||0)
+              : item.stock + (Number(qty)||0)
+            } units</span>
+          </div>
+        </div>
+
+        <div style={{padding:'14px 24px',borderTop:'1px solid var(--border)',display:'flex',justifyContent:'flex-end',gap:8,background:'var(--bg)'}}>
+          <button onClick={onClose} style={{background:'transparent',border:'1.5px solid var(--border)',padding:'8px 18px',borderRadius:8,fontWeight:600,fontSize:'0.82rem',cursor:'pointer',fontFamily:'inherit'}}>Cancel</button>
+          <button onClick={handleSubmit} style={{background:sel.color,color:'#fff',border:'none',padding:'8px 18px',borderRadius:8,fontWeight:700,fontSize:'0.82rem',cursor:'pointer',fontFamily:'inherit'}}>Log {sel.label}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SettingsModal({ settings, onSave, onClose }) {
+  const [biz, setBiz] = useState(settings.businessName || '');
+  const [contact, setContact] = useState(settings.businessContact || '');
+  const [addr, setAddr] = useState(settings.businessAddress || '');
+  const [tmpl, setTmpl] = useState(settings.poTemplate || '');
+  // Email account connection
+  const [emEmail, setEmEmail] = useState(settings.smtpUser || '');
+  const [emPass, setEmPass] = useState(settings.smtpPass || '');
+  const [emProvider, setEmProvider] = useState(settings.smtpProvider || 'gmail');
+  const [emTest, setEmTest] = useState(null); // null | 'testing' | 'ok' | 'fail'
+  const [emError, setEmError] = useState('');
+  const fileRef = React.useRef(null);
+
+  const PROVIDERS = {
+    gmail:   { label: 'Gmail',         host: 'smtp.gmail.com',      port: 587, help: 'Enable 2-Step Verification, then create an App Password named "Faith". Use that 16-char password here (NOT your normal Gmail password).' },
+    outlook: { label: 'Outlook / Hotmail', host: 'smtp-mail.outlook.com', port: 587, help: 'Go to Microsoft account \u2192 Security \u2192 Advanced \u2192 App passwords. Create one named "Faith" and paste it here.' },
+    yahoo:   { label: 'Yahoo',         host: 'smtp.mail.yahoo.com', port: 587, help: 'Yahoo \u2192 Account Security \u2192 Generate app password \u2192 name it "Faith". Paste that here.' },
+    zoho:    { label: 'Zoho Mail',     host: 'smtp.zoho.com',       port: 587, help: 'Zoho \u2192 Settings \u2192 Security \u2192 App Passwords \u2192 create one named "Faith".' },
+    other:   { label: 'Other (custom SMTP)', host: '', port: 465, help: 'Find your provider\u2019s SMTP host & port (search "[your provider] SMTP settings"). Use port 465 (SSL) or 587 (TLS). Most providers need an app password, not your login password.' },
+  };
+  const [customHost, setCustomHost] = useState(settings.smtpHost || '');
+  const [customPort, setCustomPort] = useState(settings.smtpPort || 465);
+
+  async function testEmail() {
+    setEmTest('testing'); setEmError('');
+    const prov = PROVIDERS[emProvider];
+    const host = emProvider === 'other' ? customHost : prov.host;
+    const port = emProvider === 'other' ? customPort : prov.port;
+    if (!emEmail || !emPass || !host) { setEmTest('fail'); setEmError('Fill in email, password, and host'); return; }
+    try {
+      // Free server sleeps — first wake can take ~60s. Allow a generous timeout.
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 30000);
+      const res = await fetch(`${FAITH_API}/api/verify`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ smtpHost: host, smtpPort: port, smtpUser: emEmail, smtpPass: emPass }),
+        signal: controller.signal,
+      });
+      clearTimeout(timer);
+      const data = await res.json();
+      if (data.ok) { setEmTest('ok'); } else { setEmTest('fail'); setEmError(data.error || 'Could not connect — check your email & app password'); }
+    } catch(e) {
+      setEmTest('fail');
+      setEmError(e.name === 'AbortError'
+        ? 'Server is waking up (free tier). Wait 30 seconds and click Test again.'
+        : 'Could not reach server. Wait a moment and try again.');
+    }
+  }
+
+  function handleFileUpload(file) {
+    if (!file) return;
+    const ext = file.name.split('.').pop().toLowerCase();
+    if (ext === 'txt' || ext === 'md') {
+      const r = new FileReader();
+      r.onload = (e) => setTmpl(e.target.result);
+      r.readAsText(file);
+    } else if (ext === 'pdf') {
+      const r = new FileReader();
+      r.onload = async (e) => {
+        try {
+          const data = new Uint8Array(e.target.result);
+          const pdf = await window.pdfjsLib.getDocument({ data }).promise;
+          let text = '';
+          for (let i = 1; i <= pdf.numPages; i++) {
+            const page = await pdf.getPage(i);
+            const content = await page.getTextContent();
+            text += content.items.map(t => t.str).join(' ') + '\n\n';
+          }
+          setTmpl(text.trim());
+        } catch (err) {
+          alert('Could not read that PDF. Please try a .docx or .txt instead.');
+        }
+      };
+      r.readAsArrayBuffer(file);
+    } else if (ext === 'docx') {
+      const r = new FileReader();
+      r.onload = async (e) => {
+        try {
+          const result = await window.mammoth.extractRawText({ arrayBuffer: e.target.result });
+          setTmpl(result.value.trim());
+        } catch (err) {
+          alert('Could not read that Word doc. Please try a .pdf or .txt instead.');
+        }
+      };
+      r.readAsArrayBuffer(file);
+    } else if (ext === 'doc') {
+      alert('Old .doc format isn\'t supported. Please save as .docx, .pdf, or .txt.');
+    } else {
+      alert('Unsupported file type. Use .pdf, .docx, or .txt.');
+    }
+  }
+
+  return (
+    <div style={{position:'fixed',inset:0,background:'oklch(0% 0 0 / 0.5)',zIndex:3000,display:'flex',alignItems:'center',justifyContent:'center',padding:'24px'}} onClick={onClose}>
+      <div style={{background:'var(--surface)',borderRadius:16,width:'100%',maxWidth:640,maxHeight:'90vh',display:'flex',flexDirection:'column',boxShadow:'0 24px 80px oklch(0% 0 0 / 0.2)',overflow:'hidden'}} onClick={e=>e.stopPropagation()}>
+        <div style={{padding:'20px 24px',borderBottom:'1px solid var(--border)',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+          <div>
+            <div style={{fontWeight:700,fontSize:'1rem',letterSpacing:'-0.02em'}}>✦ Email & PO Settings</div>
+            <div style={{fontSize:'0.78rem',color:'var(--fg-muted)',marginTop:2}}>Customize how Faith writes drafts on your behalf</div>
+          </div>
+          <button onClick={onClose} style={{background:'none',border:'none',cursor:'pointer',fontSize:'1.1rem',color:'var(--fg-muted)',padding:'4px 8px',borderRadius:6,fontFamily:'inherit'}}>✕</button>
+        </div>
+
+        <div style={{padding:'20px 24px',overflowY:'auto',flex:1}}>
+          {/* EMAIL CONNECTION */}
+          <div style={{marginBottom:24,paddingBottom:24,borderBottom:'1px solid var(--border)'}}>
+            <div style={{fontSize:'0.78rem',fontWeight:700,textTransform:'uppercase',letterSpacing:'0.05em',color:'var(--fg-muted)',marginBottom:6}}>✉ Your Email Account</div>
+            <div style={{fontSize:'0.78rem',color:'var(--fg-muted)',marginBottom:14,lineHeight:1.6}}>Connect your email so vendor orders send <strong>from your own address</strong>. Vendors reply directly to you.</div>
+
+            <label style={{display:'block',fontSize:'0.78rem',fontWeight:600,marginBottom:6}}>Email provider</label>
+            <select value={emProvider} onChange={e=>{setEmProvider(e.target.value);setEmTest(null);}} style={{width:'100%',padding:'10px 12px',borderRadius:8,border:'1.5px solid var(--border)',fontSize:'0.85rem',outline:'none',marginBottom:12,background:'var(--bg)',color:'var(--fg)',fontFamily:'inherit'}}>
+              {Object.entries(PROVIDERS).map(([k,v])=> <option key={k} value={k}>{v.label}</option>)}
+            </select>
+
+            {emProvider === 'other' && (
+              <div style={{display:'grid',gridTemplateColumns:'2fr 1fr',gap:12}}>
+                <div><label style={{display:'block',fontSize:'0.78rem',fontWeight:600,marginBottom:6}}>SMTP host</label><input value={customHost} onChange={e=>setCustomHost(e.target.value)} placeholder="smtp.yourhost.com" style={{width:'100%',padding:'10px 12px',borderRadius:8,border:'1.5px solid var(--border)',fontSize:'0.85rem',outline:'none',marginBottom:12,background:'var(--bg)',color:'var(--fg)',fontFamily:'inherit'}}/></div>
+                <div><label style={{display:'block',fontSize:'0.78rem',fontWeight:600,marginBottom:6}}>Port</label><input type="number" value={customPort} onChange={e=>setCustomPort(e.target.value)} placeholder="465" style={{width:'100%',padding:'10px 12px',borderRadius:8,border:'1.5px solid var(--border)',fontSize:'0.85rem',outline:'none',marginBottom:12,background:'var(--bg)',color:'var(--fg)',fontFamily:'inherit'}}/></div>
+              </div>
+            )}
+
+            <label style={{display:'block',fontSize:'0.78rem',fontWeight:600,marginBottom:6}}>Your email address</label>
+            <input type="email" value={emEmail} onChange={e=>{setEmEmail(e.target.value);setEmTest(null);}} placeholder="you@yourbusiness.com" style={{width:'100%',padding:'10px 12px',borderRadius:8,border:'1.5px solid var(--border)',fontSize:'0.85rem',outline:'none',marginBottom:12,background:'var(--bg)',color:'var(--fg)',fontFamily:'inherit'}}/>
+
+            <label style={{display:'block',fontSize:'0.78rem',fontWeight:600,marginBottom:6}}>App password</label>
+            <input type="password" value={emPass} onChange={e=>{setEmPass(e.target.value);setEmTest(null);}} placeholder="16-character app password" style={{width:'100%',padding:'10px 12px',borderRadius:8,border:'1.5px solid var(--border)',fontSize:'0.85rem',outline:'none',marginBottom:6,background:'var(--bg)',color:'var(--fg)',fontFamily:'inherit'}}/>
+            <div style={{fontSize:'0.72rem',color:'var(--fg-muted)',marginBottom:8,lineHeight:1.6,padding:'10px 12px',background:'var(--bg)',borderRadius:6,borderLeft:'3px solid var(--accent)'}}>
+              <strong>Setup for {PROVIDERS[emProvider].label}:</strong> {PROVIDERS[emProvider].help}
+              {emProvider==='gmail' && <> <a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noopener" style={{color:'var(--accent)'}}>Open Gmail App Passwords →</a></>}
+              {emProvider==='outlook' && <> <a href="https://account.microsoft.com/security" target="_blank" rel="noopener" style={{color:'var(--accent)'}}>Open Microsoft Security →</a></>}
+              {emProvider==='yahoo' && <> <a href="https://login.yahoo.com/account/security" target="_blank" rel="noopener" style={{color:'var(--accent)'}}>Open Yahoo Security →</a></>}
+              {emProvider==='zoho' && <> <a href="https://accounts.zoho.com/home#security" target="_blank" rel="noopener" style={{color:'var(--accent)'}}>Open Zoho Security →</a></>}
+            </div>
+
+            <div style={{display:'flex',alignItems:'center',gap:10}}>
+              <button onClick={testEmail} disabled={emTest==='testing'} style={{background:'var(--bg)',border:'1.5px solid var(--border)',padding:'8px 16px',borderRadius:8,fontSize:'0.8rem',fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>{emTest==='testing' ? 'Testing…' : 'Test connection'}</button>
+              {emTest==='ok' && <span style={{fontSize:'0.8rem',color:'var(--accent)',fontWeight:600}}>✓ Connected! Emails will send from {emEmail}</span>}
+              {emTest==='fail' && <span style={{fontSize:'0.8rem',color:'var(--red)'}}>⚠ {emError}</span>}
+            </div>
+          </div>
+
+          <div style={{marginBottom:24}}>
+            <div style={{fontSize:'0.78rem',fontWeight:700,textTransform:'uppercase',letterSpacing:'0.05em',color:'var(--fg-muted)',marginBottom:6}}>Business Info</div>
+            <div style={{fontSize:'0.78rem',color:'var(--fg-muted)',marginBottom:14}}>Faith uses this in every email and PO it writes.</div>
+
+            <label style={{display:'block',fontSize:'0.78rem',fontWeight:600,marginBottom:6}}>Business name</label>
+            <input value={biz} onChange={e=>setBiz(e.target.value)} placeholder="e.g. Maple Grocers Ltd"
+              style={{width:'100%',padding:'10px 12px',borderRadius:8,border:'1.5px solid var(--border)',fontSize:'0.85rem',outline:'none',marginBottom:12,background:'var(--bg)',color:'var(--fg)',fontFamily:'inherit'}}/>
+
+            <label style={{display:'block',fontSize:'0.78rem',fontWeight:600,marginBottom:6}}>Contact name (your name)</label>
+            <input value={contact} onChange={e=>setContact(e.target.value)} placeholder="e.g. Jamie Rivera"
+              style={{width:'100%',padding:'10px 12px',borderRadius:8,border:'1.5px solid var(--border)',fontSize:'0.85rem',outline:'none',marginBottom:12,background:'var(--bg)',color:'var(--fg)',fontFamily:'inherit'}}/>
+
+            <label style={{display:'block',fontSize:'0.78rem',fontWeight:600,marginBottom:6}}>Business address</label>
+            <textarea value={addr} onChange={e=>setAddr(e.target.value)} placeholder="123 Main St, City, State 12345"
+              style={{width:'100%',padding:'10px 12px',borderRadius:8,border:'1.5px solid var(--border)',fontSize:'0.85rem',outline:'none',minHeight:60,resize:'vertical',background:'var(--bg)',color:'var(--fg)',fontFamily:'inherit'}}/>
+          </div>
+
+          <div style={{borderTop:'1px solid var(--border)',paddingTop:20,marginTop:24}}>
+            <div style={{fontSize:'0.78rem',fontWeight:700,textTransform:'uppercase',letterSpacing:'0.05em',color:'var(--fg-muted)',marginBottom:6}}>Purchase Order Template (optional)</div>
+            <div style={{fontSize:'0.78rem',color:'var(--fg-muted)',marginBottom:14,lineHeight:1.6}}>If you have a PO template, paste or upload it below. Faith will fill it in for each order using its AI. Use placeholders like <code style={{background:'var(--bg)',padding:'1px 5px',borderRadius:4,fontSize:'0.75rem'}}>{`{product}`}</code>, <code style={{background:'var(--bg)',padding:'1px 5px',borderRadius:4,fontSize:'0.75rem'}}>{`{qty}`}</code>, <code style={{background:'var(--bg)',padding:'1px 5px',borderRadius:4,fontSize:'0.75rem'}}>{`{vendor}`}</code> — or just leave them blank and Claude will fill it from context.</div>
+
+            <div style={{display:'flex',gap:8,marginBottom:10}}>
+              <button onClick={()=>fileRef.current?.click()} style={{background:'var(--bg)',border:'1.5px solid var(--border)',padding:'8px 14px',borderRadius:8,fontSize:'0.78rem',fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>📎 Upload PDF / Word / .txt</button>
+              {tmpl && <button onClick={()=>setTmpl('')} style={{background:'transparent',border:'1.5px solid var(--border)',padding:'8px 14px',borderRadius:8,fontSize:'0.78rem',fontWeight:600,cursor:'pointer',fontFamily:'inherit',color:'var(--fg-muted)'}}>Clear template</button>}
+              <input ref={fileRef} type="file" accept=".pdf,.docx,.txt,.md,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain" style={{display:'none'}} onChange={e=>handleFileUpload(e.target.files[0])}/>
+            </div>
+
+            <textarea
+              value={tmpl}
+              onChange={e=>setTmpl(e.target.value)}
+              placeholder={`PURCHASE ORDER\n\nPO Number: {po_number}\nDate: {date}\n\nFROM:\n{business_name}\n{business_address}\n\nTO:\n{vendor}\n\nITEMS:\n{product} (SKU: {sku}) — Qty: {qty} @ {unit_cost}/unit\n\nTotal: {total}\n\nPlease confirm receipt and estimated delivery.\n\n{contact_name}`}
+              style={{width:'100%',minHeight:220,padding:'12px',borderRadius:8,border:'1.5px solid var(--border)',fontSize:'0.78rem',outline:'none',fontFamily:'monospace',background:'var(--bg)',color:'var(--fg)',resize:'vertical',whiteSpace:'pre-wrap'}}
+            />
+            <div style={{fontSize:'0.72rem',color:'var(--fg-muted)',marginTop:6}}>{tmpl ? `${tmpl.length} chars` : 'No template — Faith will write a clean email from scratch'}</div>
+          </div>
+        </div>
+
+        <div style={{padding:'14px 24px',borderTop:'1px solid var(--border)',display:'flex',justifyContent:'flex-end',gap:8,background:'var(--bg)'}}>
+          <button onClick={onClose} style={{background:'transparent',border:'1.5px solid var(--border)',padding:'8px 18px',borderRadius:8,fontWeight:600,fontSize:'0.82rem',cursor:'pointer',fontFamily:'inherit'}}>Cancel</button>
+          <button onClick={()=>{
+            const prov = PROVIDERS[emProvider];
+            onSave({
+              businessName:biz, businessContact:contact, businessAddress:addr, poTemplate:tmpl,
+              smtpUser: emEmail, smtpPass: emPass, smtpProvider: emProvider,
+              smtpHost: emProvider==='other' ? customHost : prov.host,
+              smtpPort: emProvider==='other' ? customPort : prov.port,
+            });
+          }} style={{background:'var(--accent)',color:'#fff',border:'none',padding:'8px 18px',borderRadius:8,fontWeight:700,fontSize:'0.82rem',cursor:'pointer',fontFamily:'inherit'}}>Save & Regenerate Drafts</button>
+        </div>
+        </div>
+      </div>
+  );
+}
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(<App/>);
+</script>
+</body>
+</html>
