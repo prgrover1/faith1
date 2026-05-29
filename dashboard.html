@@ -318,7 +318,7 @@ function draftsFromInventory(inv) {
 // ── CLAUDE AI: GENERATE PROFESSIONAL EMAIL OR PO ──
 // ── FAITH BACKEND (you, the SaaS owner, deploy this ONCE.
 //    All your customers use the same URL — no setup on their end.) ──
-const FAITH_API = 'https://faith-server.onrender.com'; // ← change to your Render URL after deploying server/
+const FAITH_API = 'https://faith-server-41cx.onrender.com'; // Render email server
 
 async function generateDraftBody(draft, settings, poNumber) {
   const { businessName, businessContact, businessAddress, poTemplate } = settings;
@@ -1077,6 +1077,9 @@ function App() {
 
     // ── Send via Faith's shared backend (auto-deployed by the SaaS owner — no per-customer setup) ──
     try {
+      // No email connected? Skip backend, fall back to mailto.
+      if (!settings.smtpUser || !settings.smtpPass) throw new Error('no-email-connected');
+
       const emailBody = hasTemplate
         ? `Hi ${draft.vendor},\n\nPlease find our purchase order for ${draft.product} attached.\n\n${body.substring(0, 300)}${body.length > 300 ? '...' : ''}\n\n— ${settings.businessName || 'Sent via Faith'}`
         : body;
@@ -1090,8 +1093,12 @@ function App() {
           body: emailBody,
           attachmentBase64: pdfBase64,
           attachmentName: pdfFilename,
-          fromName: settings.businessName ? `${settings.businessName} (via Faith)` : 'Faith',
-          replyTo: settings.businessContact || undefined,
+          fromName: settings.businessName || settings.smtpUser,
+          replyTo: settings.businessContact || settings.smtpUser || undefined,
+          smtpHost: settings.smtpHost,
+          smtpPort: settings.smtpPort,
+          smtpUser: settings.smtpUser,
+          smtpPass: settings.smtpPass,
         }),
       });
       if (!res.ok) throw new Error(`Server returned ${res.status}`);
@@ -2023,7 +2030,42 @@ function SettingsModal({ settings, onSave, onClose }) {
   const [contact, setContact] = useState(settings.businessContact || '');
   const [addr, setAddr] = useState(settings.businessAddress || '');
   const [tmpl, setTmpl] = useState(settings.poTemplate || '');
+  // Email account connection
+  const [emEmail, setEmEmail] = useState(settings.smtpUser || '');
+  const [emPass, setEmPass] = useState(settings.smtpPass || '');
+  const [emProvider, setEmProvider] = useState(settings.smtpProvider || 'gmail');
+  const [emTest, setEmTest] = useState(null); // null | 'testing' | 'ok' | 'fail'
+  const [emError, setEmError] = useState('');
   const fileRef = React.useRef(null);
+
+  const PROVIDERS = {
+    gmail:   { label: 'Gmail',         host: 'smtp.gmail.com',      port: 465, help: 'Use a Google App Password (not your normal password)' },
+    outlook: { label: 'Outlook / Hotmail', host: 'smtp-mail.outlook.com', port: 587, help: 'Use your normal password or an app password' },
+    yahoo:   { label: 'Yahoo',         host: 'smtp.mail.yahoo.com', port: 465, help: 'Generate an app password in Yahoo account security' },
+    zoho:    { label: 'Zoho Mail',     host: 'smtp.zoho.com',       port: 465, help: 'Use an app-specific password' },
+    other:   { label: 'Other (custom SMTP)', host: '', port: 465, help: 'Enter your provider\u2019s SMTP host and port' },
+  };
+  const [customHost, setCustomHost] = useState(settings.smtpHost || '');
+  const [customPort, setCustomPort] = useState(settings.smtpPort || 465);
+
+  async function testEmail() {
+    setEmTest('testing'); setEmError('');
+    const prov = PROVIDERS[emProvider];
+    const host = emProvider === 'other' ? customHost : prov.host;
+    const port = emProvider === 'other' ? customPort : prov.port;
+    if (!emEmail || !emPass || !host) { setEmTest('fail'); setEmError('Fill in email, password, and host'); return; }
+    try {
+      const res = await fetch(`${FAITH_API}/api/verify`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ smtpHost: host, smtpPort: port, smtpUser: emEmail, smtpPass: emPass }),
+      });
+      const data = await res.json();
+      if (data.ok) { setEmTest('ok'); } else { setEmTest('fail'); setEmError(data.error || 'Could not connect'); }
+    } catch(e) {
+      setEmTest('fail'); setEmError('Server unreachable — try again in a moment (free server may be waking up)');
+    }
+  }
 
   function handleFileUpload(file) {
     if (!file) return;
@@ -2080,6 +2122,37 @@ function SettingsModal({ settings, onSave, onClose }) {
         </div>
 
         <div style={{padding:'20px 24px',overflowY:'auto',flex:1}}>
+          {/* EMAIL CONNECTION */}
+          <div style={{marginBottom:24,paddingBottom:24,borderBottom:'1px solid var(--border)'}}>
+            <div style={{fontSize:'0.78rem',fontWeight:700,textTransform:'uppercase',letterSpacing:'0.05em',color:'var(--fg-muted)',marginBottom:6}}>✉ Your Email Account</div>
+            <div style={{fontSize:'0.78rem',color:'var(--fg-muted)',marginBottom:14,lineHeight:1.6}}>Connect your email so vendor orders send <strong>from your own address</strong>. Vendors reply directly to you.</div>
+
+            <label style={{display:'block',fontSize:'0.78rem',fontWeight:600,marginBottom:6}}>Email provider</label>
+            <select value={emProvider} onChange={e=>{setEmProvider(e.target.value);setEmTest(null);}} style={{width:'100%',padding:'10px 12px',borderRadius:8,border:'1.5px solid var(--border)',fontSize:'0.85rem',outline:'none',marginBottom:12,background:'var(--bg)',color:'var(--fg)',fontFamily:'inherit'}}>
+              {Object.entries(PROVIDERS).map(([k,v])=> <option key={k} value={k}>{v.label}</option>)}
+            </select>
+
+            {emProvider === 'other' && (
+              <div style={{display:'grid',gridTemplateColumns:'2fr 1fr',gap:12}}>
+                <div><label style={{display:'block',fontSize:'0.78rem',fontWeight:600,marginBottom:6}}>SMTP host</label><input value={customHost} onChange={e=>setCustomHost(e.target.value)} placeholder="smtp.yourhost.com" style={{width:'100%',padding:'10px 12px',borderRadius:8,border:'1.5px solid var(--border)',fontSize:'0.85rem',outline:'none',marginBottom:12,background:'var(--bg)',color:'var(--fg)',fontFamily:'inherit'}}/></div>
+                <div><label style={{display:'block',fontSize:'0.78rem',fontWeight:600,marginBottom:6}}>Port</label><input type="number" value={customPort} onChange={e=>setCustomPort(e.target.value)} placeholder="465" style={{width:'100%',padding:'10px 12px',borderRadius:8,border:'1.5px solid var(--border)',fontSize:'0.85rem',outline:'none',marginBottom:12,background:'var(--bg)',color:'var(--fg)',fontFamily:'inherit'}}/></div>
+              </div>
+            )}
+
+            <label style={{display:'block',fontSize:'0.78rem',fontWeight:600,marginBottom:6}}>Your email address</label>
+            <input type="email" value={emEmail} onChange={e=>{setEmEmail(e.target.value);setEmTest(null);}} placeholder="you@yourbusiness.com" style={{width:'100%',padding:'10px 12px',borderRadius:8,border:'1.5px solid var(--border)',fontSize:'0.85rem',outline:'none',marginBottom:12,background:'var(--bg)',color:'var(--fg)',fontFamily:'inherit'}}/>
+
+            <label style={{display:'block',fontSize:'0.78rem',fontWeight:600,marginBottom:6}}>App password</label>
+            <input type="password" value={emPass} onChange={e=>{setEmPass(e.target.value);setEmTest(null);}} placeholder="16-character app password" style={{width:'100%',padding:'10px 12px',borderRadius:8,border:'1.5px solid var(--border)',fontSize:'0.85rem',outline:'none',marginBottom:6,background:'var(--bg)',color:'var(--fg)',fontFamily:'inherit'}}/>
+            <div style={{fontSize:'0.72rem',color:'var(--fg-muted)',marginBottom:12,lineHeight:1.5}}>{PROVIDERS[emProvider].help}. {emProvider==='gmail' && <a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noopener" style={{color:'var(--accent)'}}>Get a Gmail app password →</a>}</div>
+
+            <div style={{display:'flex',alignItems:'center',gap:10}}>
+              <button onClick={testEmail} disabled={emTest==='testing'} style={{background:'var(--bg)',border:'1.5px solid var(--border)',padding:'8px 16px',borderRadius:8,fontSize:'0.8rem',fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>{emTest==='testing' ? 'Testing…' : 'Test connection'}</button>
+              {emTest==='ok' && <span style={{fontSize:'0.8rem',color:'var(--accent)',fontWeight:600}}>✓ Connected! Emails will send from {emEmail}</span>}
+              {emTest==='fail' && <span style={{fontSize:'0.8rem',color:'var(--red)'}}>⚠ {emError}</span>}
+            </div>
+          </div>
+
           <div style={{marginBottom:24}}>
             <div style={{fontSize:'0.78rem',fontWeight:700,textTransform:'uppercase',letterSpacing:'0.05em',color:'var(--fg-muted)',marginBottom:6}}>Business Info</div>
             <div style={{fontSize:'0.78rem',color:'var(--fg-muted)',marginBottom:14}}>Faith uses this in every email and PO it writes.</div>
@@ -2119,7 +2192,15 @@ function SettingsModal({ settings, onSave, onClose }) {
 
         <div style={{padding:'14px 24px',borderTop:'1px solid var(--border)',display:'flex',justifyContent:'flex-end',gap:8,background:'var(--bg)'}}>
           <button onClick={onClose} style={{background:'transparent',border:'1.5px solid var(--border)',padding:'8px 18px',borderRadius:8,fontWeight:600,fontSize:'0.82rem',cursor:'pointer',fontFamily:'inherit'}}>Cancel</button>
-          <button onClick={()=>onSave({businessName:biz, businessContact:contact, businessAddress:addr, poTemplate:tmpl})} style={{background:'var(--accent)',color:'#fff',border:'none',padding:'8px 18px',borderRadius:8,fontWeight:700,fontSize:'0.82rem',cursor:'pointer',fontFamily:'inherit'}}>Save & Regenerate Drafts</button>
+          <button onClick={()=>{
+            const prov = PROVIDERS[emProvider];
+            onSave({
+              businessName:biz, businessContact:contact, businessAddress:addr, poTemplate:tmpl,
+              smtpUser: emEmail, smtpPass: emPass, smtpProvider: emProvider,
+              smtpHost: emProvider==='other' ? customHost : prov.host,
+              smtpPort: emProvider==='other' ? customPort : prov.port,
+            });
+          }} style={{background:'var(--accent)',color:'#fff',border:'none',padding:'8px 18px',borderRadius:8,fontWeight:700,fontSize:'0.82rem',cursor:'pointer',fontFamily:'inherit'}}>Save & Regenerate Drafts</button>
         </div>
         </div>
       </div>

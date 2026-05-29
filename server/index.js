@@ -1,11 +1,8 @@
 // ──────────────────────────────────────────────────────────────
-// FAITH EMAIL SERVER
-// Receives requests from the Faith dashboard and sends real
-// emails via your SMTP provider (Gmail, SendGrid, Resend, etc.)
-// with the generated PO PDF as an attachment.
-//
-// DEPLOY THIS to Render / Railway / Fly.io (free tier works).
-// Then paste the public URL into Faith → Settings → "Email Server URL".
+// FAITH EMAIL SERVER (multi-tenant)
+// Each business sends from THEIR OWN email. The dashboard passes
+// the customer's SMTP credentials with every request, so the email
+// truly comes from their inbox — not a shared account.
 // ──────────────────────────────────────────────────────────────
 
 const express = require('express');
@@ -16,45 +13,57 @@ const app = express();
 app.use(cors());
 app.use(express.json({ limit: '10mb' })); // PDFs come as base64 → allow large bodies
 
-// ── ENVIRONMENT VARIABLES (set these in Render / Railway dashboard)
-// SMTP_HOST       e.g. smtp.gmail.com
-// SMTP_PORT       e.g. 465
-// SMTP_USER       e.g. you@yourcompany.com
-// SMTP_PASS       e.g. an app-password (NOT your real password)
-// FROM_NAME       e.g. "Faith on behalf of Jamie"
-// ALLOWED_ORIGINS comma-separated list of domains allowed to call this server
-//                 e.g. "https://prgrover1.github.io,http://localhost:3000"
-// ──────────────────────────────────────────────────────────────
-
-const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST,
-  port: Number(process.env.SMTP_PORT || 465),
-  secure: Number(process.env.SMTP_PORT || 465) === 465,
-  auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS,
-  },
-});
-
 // Health-check (Render pings this)
 app.get('/', (req, res) => res.json({ ok: true, name: 'Faith Email Server', time: new Date().toISOString() }));
 
-// Send endpoint — the dashboard POSTs here
+// Verify-credentials endpoint — lets the dashboard test a connection before saving
+app.post('/api/verify', async (req, res) => {
+  try {
+    const { smtpHost, smtpPort, smtpUser, smtpPass } = req.body;
+    if (!smtpHost || !smtpUser || !smtpPass) return res.status(400).json({ error: 'Missing SMTP credentials' });
+    const t = nodemailer.createTransport({
+      host: smtpHost,
+      port: Number(smtpPort || 465),
+      secure: Number(smtpPort || 465) === 465,
+      auth: { user: smtpUser, pass: smtpPass },
+    });
+    await t.verify();
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(400).json({ ok: false, error: err.message });
+  }
+});
+
+// Send endpoint — uses the CUSTOMER's own SMTP credentials from the request
 app.post('/api/send', async (req, res) => {
   try {
-    const { to, subject, body, attachmentBase64, attachmentName, fromName, replyTo } = req.body;
+    const {
+      to, subject, body, attachmentBase64, attachmentName, fromName, replyTo,
+      smtpHost, smtpPort, smtpUser, smtpPass,
+    } = req.body;
 
     if (!to || !subject || !body) {
       return res.status(400).json({ error: 'Missing required fields: to, subject, body' });
     }
+    if (!smtpHost || !smtpUser || !smtpPass) {
+      return res.status(400).json({ error: 'No email account connected. Connect your email in Settings first.' });
+    }
 
-    const displayName = (fromName || process.env.FROM_NAME || 'Faith').replace(/[<>"]/g, '');
+    // Build a transporter from THIS customer's credentials
+    const transporter = nodemailer.createTransport({
+      host: smtpHost,
+      port: Number(smtpPort || 465),
+      secure: Number(smtpPort || 465) === 465,
+      auth: { user: smtpUser, pass: smtpPass },
+    });
+
+    const displayName = (fromName || smtpUser).replace(/[<>"]/g, '');
     const mail = {
-      from: `"${displayName}" <${process.env.SMTP_USER}>`,
+      from: `"${displayName}" <${smtpUser}>`,  // ← sends from the customer's own address
       to,
       subject,
       text: body,
-      replyTo: replyTo || undefined,
+      replyTo: replyTo || smtpUser || undefined,
     };
 
     if (attachmentBase64 && attachmentName) {
@@ -66,7 +75,7 @@ app.post('/api/send', async (req, res) => {
     }
 
     const info = await transporter.sendMail(mail);
-    console.log('Email sent:', info.messageId, '→', to, 'from', displayName);
+    console.log('Email sent:', info.messageId, '→', to, 'from', smtpUser);
     res.json({ ok: true, messageId: info.messageId });
   } catch (err) {
     console.error('Send failed:', err);
