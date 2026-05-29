@@ -26,6 +26,9 @@ app.post('/api/verify', async (req, res) => {
       port: Number(smtpPort || 465),
       secure: Number(smtpPort || 465) === 465,
       auth: { user: smtpUser, pass: smtpPass },
+      connectionTimeout: 15000,
+      greetingTimeout: 15000,
+      socketTimeout: 15000,
     });
     await t.verify();
     res.json({ ok: true });
@@ -55,6 +58,9 @@ app.post('/api/send', async (req, res) => {
       port: Number(smtpPort || 465),
       secure: Number(smtpPort || 465) === 465,
       auth: { user: smtpUser, pass: smtpPass },
+      connectionTimeout: 15000,
+      greetingTimeout: 15000,
+      socketTimeout: 20000,
     });
 
     const displayName = (fromName || smtpUser).replace(/[<>"]/g, '');
