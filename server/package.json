@@ -1,0 +1,17 @@
+{
+  "name": "faith-email-server",
+  "version": "1.0.0",
+  "description": "Backend for Faith Inventory — sends AI-drafted reorder emails with PO attachments",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.18.2",
+    "nodemailer": "^6.9.7"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
